@@ -1,0 +1,67 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #d9f9d9; /* ✅ verde claro (puedes ajustar) */
+  margin: 0;
+  padding: 30px;
+}
+
+.card {
+  max-width: 720px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+}
+
+h1 {
+  margin: 0 0 16px 0;
+  font-size: 22px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+button {
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+  background: #e5e7eb;
+}
+
+button.danger {
+  background: #ef4444;
+  color: white;
+}
+
+/* 8 buttons grid */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.led-btn {
+  background: #e5e7eb;
+}
+
+.led-btn.active {
+  background: #22c55e;
+  color: white;
+  font-weight: bold;
+}
+
+pre {
+  background: #0b1020;
+  color: #d1d5db;
+  padding: 12px;
+  border-radius: 12px;
+  overflow: auto;
+  min-height: 110px;
+}

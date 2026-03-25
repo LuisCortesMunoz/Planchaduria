@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>WS2812 Control Panel</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <div class="card">
+    <h1>WS2812 Control Panel</h1>
+
+    <div class="row">
+      <button id="btnAllOn">All ON</button>
+      <button id="btnAllOff" class="danger">All OFF</button>
+    </div>
+
+    <div class="row">
+      <label>Color</label>
+      <input id="color" type="color" value="#ff0000" />
+    </div>
+
+    <!-- 8 LED toggles -->
+    <div class="grid">
+      <button class="led-btn" data-led="0" id="led0">LED 1</button>
+      <button class="led-btn" data-led="1" id="led1">LED 2</button>
+      <button class="led-btn" data-led="2" id="led2">LED 3</button>
+      <button class="led-btn" data-led="3" id="led3">LED 4</button>
+      <button class="led-btn" data-led="4" id="led4">LED 5</button>
+      <button class="led-btn" data-led="5" id="led5">LED 6</button>
+      <button class="led-btn" data-led="6" id="led6">LED 7</button>
+      <button class="led-btn" data-led="7" id="led7">LED 8</button>
+    </div>
+
+    <pre id="log"></pre>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

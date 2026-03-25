@@ -1,67 +1,105 @@
 body {
-  font-family: Arial, sans-serif;
-  background: #d9f9d9; /* ✅ verde claro (puedes ajustar) */
-  margin: 0;
-  padding: 30px;
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #eef5ff, #dbeafe);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    box-sizing: border-box;
 }
 
-.card {
-  max-width: 720px;
-  margin: 0 auto;
-  background: white;
-  border-radius: 14px;
-  padding: 20px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+.panel {
+    width: 600px;
+    max-width: 100%;
+    background: white;
+    border-radius: 22px;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.15);
+    padding: 32px;
 }
 
 h1 {
-  margin: 0 0 16px 0;
-  font-size: 22px;
+    text-align: center;
+    margin-top: 0;
+    color: #114b8b;
 }
 
-.row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 12px 0;
+p {
+    text-align: center;
+    color: #4b5b6b;
+    line-height: 1.5;
+}
+
+label {
+    display: block;
+    margin-top: 18px;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #1f3f5b;
+}
+
+input {
+    width: 100%;
+    padding: 13px;
+    border-radius: 12px;
+    border: 1px solid #c5d8ee;
+    box-sizing: border-box;
+    font-size: 16px;
 }
 
 button {
-  padding: 10px 14px;
-  border: 0;
-  border-radius: 10px;
-  cursor: pointer;
-  background: #e5e7eb;
+    width: 100%;
+    margin-top: 22px;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    background: #1976d2;
+    color: white;
+    font-size: 17px;
+    font-weight: bold;
+    cursor: pointer;
 }
 
-button.danger {
-  background: #ef4444;
-  color: white;
+button:hover {
+    background: #125ea8;
 }
 
-/* 8 buttons grid */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(120px, 1fr));
-  gap: 12px;
-  margin: 14px 0;
+button.secondary {
+    background: #5b728a;
 }
 
-.led-btn {
-  background: #e5e7eb;
+button.secondary:hover {
+    background: #46596c;
 }
 
-.led-btn.active {
-  background: #22c55e;
-  color: white;
-  font-weight: bold;
+.estado-box,
+.resultado-box,
+.backend-box {
+    margin-top: 25px;
+    padding: 18px;
+    background: #f4f9ff;
+    border-radius: 14px;
+    border: 1px solid #d3e4f7;
 }
 
-pre {
-  background: #0b1020;
-  color: #d1d5db;
-  padding: 12px;
-  border-radius: 12px;
-  overflow: auto;
-  min-height: 110px;
+.estado-item {
+    margin-bottom: 8px;
+    color: #163d63;
+}
+
+.row {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.row button {
+    margin-top: 0;
+}
+
+#mensaje {
+    margin-top: 10px;
+    color: #163d63;
+    word-break: break-word;
 }

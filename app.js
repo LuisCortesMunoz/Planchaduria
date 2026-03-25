@@ -1,78 +1,143 @@
-const API_BASE = "https://docker-flask-servidor-render.onrender.com";
+// Step 1: Load backend URL from localStorage or use default
+let BACKEND_URL = localStorage.getItem("backendUrl") || "http://127.0.0.1:5000";
 
-const el = (id) => document.getElementById(id);
+// Step 2: Put saved URL in input when page loads
+window.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("backendUrl").value = BACKEND_URL;
+    actualizarEstado();
+});
 
-const log = (msg) => {
-  el("log").textContent =
-    `${new Date().toLocaleTimeString()}  ${msg}\n` + el("log").textContent;
-};
+// Step 3: Save backend URL
+function guardarBackend() {
+    const value = document.getElementById("backendUrl").value.trim();
 
-function makeUrl(path) {
-  return `${API_BASE}${path}`;
+    if (!value) {
+        alert("Ingresa una URL válida.");
+        return;
+    }
+
+    BACKEND_URL = value.replace(/\/$/, "");
+    localStorage.setItem("backendUrl", BACKEND_URL);
+    mostrarMensaje("URL backend guardada: " + BACKEND_URL);
 }
 
-let ledState = Array(8).fill(false);
-
-const colorInput = el("color");
-const ledButtons = document.querySelectorAll(".led-btn");
-
-function renderButtons() {
-  ledButtons.forEach((btn) => {
-    const idx = Number(btn.dataset.led);
-    if (ledState[idx]) btn.classList.add("active");
-    else btn.classList.remove("active");
-  });
+// Step 4: Show messages
+function mostrarMensaje(texto) {
+    document.getElementById("mensaje").innerText = texto;
 }
 
-async function sendToBackend() {
-  const payload = {
-    hex: colorInput.value,
-    leds: ledState
-  };
-
-  try {
-    const res = await fetch(makeUrl("/api/set_leds"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || "Request failed");
-
-    log(`OK -> hex=${data.state.hex}, leds=${JSON.stringify(data.state.leds)}`);
-  } catch (err) {
-    log(`ERROR -> ${err.message}`);
-  }
+// Step 5: Test connection
+async function probarConexion() {
+    try {
+        const response = await fetch(`${BACKEND_URL}/`);
+        const data = await response.json();
+        mostrarMensaje(data.message || "Conexión correcta con backend");
+        alert("Conexión correcta");
+    } catch (error) {
+        mostrarMensaje("No se pudo conectar al backend");
+        alert("Error de conexión con el backend");
+    }
 }
 
-// Toggle LEDs (auto-send)
-ledButtons.forEach((btn) => {
-  btn.addEventListener("click", async () => {
-    const idx = Number(btn.dataset.led);
-    ledState[idx] = !ledState[idx];
-    renderButtons();
-    await sendToBackend();
-  });
-});
+// Step 6: Start batch
+async function iniciarLote() {
+    const cantidad = parseInt(document.getElementById("cantidad").value);
 
-// All ON / OFF (auto-send)
-el("btnAllOn").addEventListener("click", async () => {
-  ledState = Array(8).fill(true);
-  renderButtons();
-  await sendToBackend();
-});
+    if (!cantidad || cantidad <= 0) {
+        alert("Ingresa una cantidad válida.");
+        return;
+    }
 
-el("btnAllOff").addEventListener("click", async () => {
-  ledState = Array(8).fill(false);
-  renderButtons();
-  await sendToBackend();
-});
+    try {
+        const response = await fetch(`${BACKEND_URL}/iniciar_lote`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ cantidad: cantidad })
+        });
 
-// ✅ INSTANT: each color movement sends immediately
-colorInput.addEventListener("input", () => {
-  sendToBackend();
-});
+        const data = await response.json();
+        mostrarMensaje(data.message || "Respuesta recibida");
+        alert(data.message);
+    } catch (error) {
+        mostrarMensaje("Error al iniciar lote");
+        alert("No se pudo iniciar el lote");
+    }
+}
 
-renderButtons();
-log("Ready.");
+// Step 7: Manual start
+async function startManual() {
+    try {
+        const response = await fetch(`${BACKEND_URL}/start`, {
+            method: "POST"
+        });
+
+        const data = await response.json();
+        mostrarMensaje(data.message || "Start enviado");
+        alert(data.message);
+    } catch (error) {
+        mostrarMensaje("Error al enviar START");
+        alert("No se pudo enviar START");
+    }
+}
+
+// Step 8: Manual stop
+async function stopManual() {
+    try {
+        const response = await fetch(`${BACKEND_URL}/stop`, {
+            method: "POST"
+        });
+
+        const data = await response.json();
+        mostrarMensaje(data.message || "Stop enviado");
+        alert(data.message);
+    } catch (error) {
+        mostrarMensaje("Error al enviar STOP");
+        alert("No se pudo enviar STOP");
+    }
+}
+
+// Step 9: Take photo
+async function tomarFoto() {
+    try {
+        const response = await fetch(`${BACKEND_URL}/tomar_foto`, {
+            method: "POST"
+        });
+
+        const data = await response.json();
+
+        if (data.ok) {
+            mostrarMensaje("Foto guardada en: " + data.archivo);
+            alert("Foto tomada correctamente");
+        } else {
+            mostrarMensaje(data.error || "Error al tomar foto");
+            alert("Error al tomar foto");
+        }
+    } catch (error) {
+        mostrarMensaje("No se pudo tomar la foto");
+        alert("No se pudo tomar la foto");
+    }
+}
+
+// Step 10: Update state every second
+async function actualizarEstado() {
+    try {
+        const response = await fetch(`${BACKEND_URL}/estado`);
+        const data = await response.json();
+
+        document.getElementById("estado").innerText = data.estado;
+        document.getElementById("activo").innerText = data.trabajo_activo ? "Sí" : "No";
+        document.getElementById("total").innerText = data.total_prendas;
+        document.getElementById("actual").innerText = data.prenda_actual;
+        document.getElementById("fotos").innerText = data.fotos.length;
+        document.getElementById("error").innerText = data.error ? data.error : "Ninguno";
+    } catch (error) {
+        document.getElementById("estado").innerText = "Sin conexión";
+        document.getElementById("activo").innerText = "-";
+        document.getElementById("total").innerText = "-";
+        document.getElementById("actual").innerText = "-";
+        document.getElementById("fotos").innerText = "-";
+        document.getElementById("error").innerText = "No se pudo conectar al backend";
+    }
+}
+
+setInterval(actualizarEstado, 1000);

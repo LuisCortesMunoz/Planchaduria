@@ -1,41 +1,55 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>WS2812 Control Panel</title>
-  <link rel="stylesheet" href="styles.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Captura de Prendas</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
-
 <body>
-  <div class="card">
-    <h1>WS2812 Control Panel</h1>
+    <div class="panel">
+        <h1>Sistema de Captura de Prendas</h1>
+        <p>
+            Ingresa la cantidad de prendas. Por cada prenda el sistema activará el motor,
+            lo dejará girar 5 segundos, lo detendrá y después tomará una foto.
+        </p>
 
-    <div class="row">
-      <button id="btnAllOn">All ON</button>
-      <button id="btnAllOff" class="danger">All OFF</button>
+        <div class="backend-box">
+            <label for="backendUrl">URL del backend</label>
+            <input type="text" id="backendUrl" placeholder="Ejemplo: http://192.168.3.100:5000">
+            <button class="secondary" onclick="guardarBackend()">Guardar URL backend</button>
+        </div>
+
+        <label for="cantidad">Cantidad de prendas</label>
+        <input type="number" id="cantidad" min="1" placeholder="Ejemplo: 5">
+
+        <button onclick="iniciarLote()">Iniciar lote</button>
+
+        <div class="row">
+            <button onclick="startManual()">Start manual</button>
+            <button onclick="stopManual()">Stop manual</button>
+        </div>
+
+        <div class="row">
+            <button class="secondary" onclick="tomarFoto()">Tomar foto</button>
+            <button class="secondary" onclick="probarConexion()">Probar conexión</button>
+        </div>
+
+        <div class="estado-box">
+            <div class="estado-item"><strong>Estado:</strong> <span id="estado">Esperando trabajo</span></div>
+            <div class="estado-item"><strong>Trabajo activo:</strong> <span id="activo">No</span></div>
+            <div class="estado-item"><strong>Total prendas:</strong> <span id="total">0</span></div>
+            <div class="estado-item"><strong>Prenda actual:</strong> <span id="actual">0</span></div>
+            <div class="estado-item"><strong>Fotos tomadas:</strong> <span id="fotos">0</span></div>
+            <div class="estado-item"><strong>Error:</strong> <span id="error">Ninguno</span></div>
+        </div>
+
+        <div class="resultado-box">
+            <strong>Último mensaje:</strong>
+            <div id="mensaje">Sin mensajes todavía</div>
+        </div>
     </div>
 
-    <div class="row">
-      <label>Color</label>
-      <input id="color" type="color" value="#ff0000" />
-    </div>
-
-    <!-- 8 LED toggles -->
-    <div class="grid">
-      <button class="led-btn" data-led="0" id="led0">LED 1</button>
-      <button class="led-btn" data-led="1" id="led1">LED 2</button>
-      <button class="led-btn" data-led="2" id="led2">LED 3</button>
-      <button class="led-btn" data-led="3" id="led3">LED 4</button>
-      <button class="led-btn" data-led="4" id="led4">LED 5</button>
-      <button class="led-btn" data-led="5" id="led5">LED 6</button>
-      <button class="led-btn" data-led="6" id="led6">LED 7</button>
-      <button class="led-btn" data-led="7" id="led7">LED 8</button>
-    </div>
-
-    <pre id="log"></pre>
-  </div>
-
-  <script src="app.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>

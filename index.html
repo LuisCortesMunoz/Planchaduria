@@ -3,50 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Captura de Prendas</title>
+    <title>Control de Prendas</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="panel">
-        <h1>Sistema de Captura de Prendas</h1>
-        <p>
-            Ingresa la cantidad de prendas. Por cada prenda el sistema activará el motor,
-            lo dejará girar 5 segundos, lo detendrá y después tomará una foto.
-        </p>
+        <h1>Control de Prendas</h1>
+        <p>Ingresa la cantidad de prendas, activa o desactiva el motor y revisa la galería de fotos.</p>
 
-        <div class="backend-box">
-            <label for="backendUrl">URL del backend</label>
-            <input type="text" id="backendUrl" placeholder="Ejemplo: http://192.168.3.100:5000">
-            <button class="secondary" onclick="guardarBackend()">Guardar URL backend</button>
-        </div>
+        <label for="backendUrl">URL del backend Render</label>
+        <input type="text" id="backendUrl" placeholder="https://tu-backend.onrender.com">
+
+        <button onclick="guardarBackend()">Guardar URL</button>
 
         <label for="cantidad">Cantidad de prendas</label>
-        <input type="number" id="cantidad" min="1" placeholder="Ejemplo: 5">
+        <input type="number" id="cantidad" min="0" placeholder="Ejemplo: 5">
 
-        <button onclick="iniciarLote()">Iniciar lote</button>
-
-        <div class="row">
-            <button onclick="startManual()">Start manual</button>
-            <button onclick="stopManual()">Stop manual</button>
-        </div>
+        <button onclick="guardarCantidad()">Guardar cantidad</button>
 
         <div class="row">
-            <button class="secondary" onclick="tomarFoto()">Tomar foto</button>
-            <button class="secondary" onclick="probarConexion()">Probar conexión</button>
+            <button class="on" onclick="activarSistema()">ON</button>
+            <button class="off" onclick="desactivarSistema()">OFF</button>
         </div>
+
+        <button class="gallery" onclick="cargarGaleria()">Ver galería</button>
 
         <div class="estado-box">
-            <div class="estado-item"><strong>Estado:</strong> <span id="estado">Esperando trabajo</span></div>
-            <div class="estado-item"><strong>Trabajo activo:</strong> <span id="activo">No</span></div>
-            <div class="estado-item"><strong>Total prendas:</strong> <span id="total">0</span></div>
-            <div class="estado-item"><strong>Prenda actual:</strong> <span id="actual">0</span></div>
-            <div class="estado-item"><strong>Fotos tomadas:</strong> <span id="fotos">0</span></div>
-            <div class="estado-item"><strong>Error:</strong> <span id="error">Ninguno</span></div>
+            <h3>Estado actual</h3>
+            <p><strong>Activo:</strong> <span id="activo">-</span></p>
+            <p><strong>Cantidad:</strong> <span id="cantidadActual">-</span></p>
+            <p><strong>Estado:</strong> <span id="estado">-</span></p>
+            <p><strong>Última actualización:</strong> <span id="updatedAt">-</span></p>
         </div>
 
-        <div class="resultado-box">
-            <strong>Último mensaje:</strong>
-            <div id="mensaje">Sin mensajes todavía</div>
+        <div class="galeria-box">
+            <h3>Galería</h3>
+            <div id="galeria" class="galeria"></div>
         </div>
     </div>
 

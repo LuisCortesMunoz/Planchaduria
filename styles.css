@@ -5,101 +5,95 @@ body {
     min-height: 100vh;
     display: flex;
     justify-content: center;
-    align-items: center;
     padding: 20px;
     box-sizing: border-box;
 }
 
 .panel {
-    width: 600px;
+    width: 700px;
     max-width: 100%;
     background: white;
-    border-radius: 22px;
+    border-radius: 20px;
+    padding: 30px;
     box-shadow: 0 12px 28px rgba(0,0,0,0.15);
-    padding: 32px;
 }
 
-h1 {
+h1, h3 {
     text-align: center;
-    margin-top: 0;
     color: #114b8b;
 }
 
 p {
-    text-align: center;
-    color: #4b5b6b;
-    line-height: 1.5;
+    color: #35506b;
 }
 
 label {
     display: block;
-    margin-top: 18px;
+    margin-top: 15px;
     margin-bottom: 8px;
     font-weight: bold;
-    color: #1f3f5b;
 }
 
 input {
     width: 100%;
-    padding: 13px;
-    border-radius: 12px;
-    border: 1px solid #c5d8ee;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #cbdcf0;
     box-sizing: border-box;
-    font-size: 16px;
 }
 
 button {
     width: 100%;
-    margin-top: 22px;
+    margin-top: 15px;
     padding: 14px;
     border: none;
     border-radius: 12px;
-    background: #1976d2;
-    color: white;
-    font-size: 17px;
+    font-size: 16px;
     font-weight: bold;
     cursor: pointer;
+    background: #1976d2;
+    color: white;
 }
 
 button:hover {
-    background: #125ea8;
-}
-
-button.secondary {
-    background: #5b728a;
-}
-
-button.secondary:hover {
-    background: #46596c;
-}
-
-.estado-box,
-.resultado-box,
-.backend-box {
-    margin-top: 25px;
-    padding: 18px;
-    background: #f4f9ff;
-    border-radius: 14px;
-    border: 1px solid #d3e4f7;
-}
-
-.estado-item {
-    margin-bottom: 8px;
-    color: #163d63;
+    opacity: 0.92;
 }
 
 .row {
     display: flex;
     gap: 10px;
+}
+
+.on {
+    background: #2e7d32;
+}
+
+.off {
+    background: #c62828;
+}
+
+.gallery {
+    background: #5b728a;
+}
+
+.estado-box,
+.galeria-box {
+    margin-top: 25px;
+    padding: 18px;
+    border-radius: 14px;
+    background: #f4f9ff;
+    border: 1px solid #d3e4f7;
+}
+
+.galeria {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
     margin-top: 15px;
 }
 
-.row button {
-    margin-top: 0;
-}
-
-#mensaje {
-    margin-top: 10px;
-    color: #163d63;
-    word-break: break-word;
+.galeria img {
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid #cbdcf0;
 }

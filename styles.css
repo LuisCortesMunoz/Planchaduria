@@ -10,7 +10,7 @@ body {
 }
 
 .panel {
-    width: 720px;
+    width: 760px;
     max-width: 100%;
     background: #ffffff;
     border-radius: 22px;
@@ -64,29 +64,14 @@ input {
     color: white;
 }
 
-.btn-azul {
-    background: #1976d2;
-}
+.btn-azul { background: #1976d2; }
+.btn-azul:hover { background: #125ea8; }
 
-.btn-azul:hover {
-    background: #125ea8;
-}
+.btn-verde { background: #2e7d32; }
+.btn-verde:hover { background: #256628; }
 
-.btn-verde {
-    background: #2e7d32;
-}
-
-.btn-verde:hover {
-    background: #256628;
-}
-
-.btn-gris {
-    background: #5b728a;
-}
-
-.btn-gris:hover {
-    background: #485b6d;
-}
+.btn-gris { background: #5b728a; }
+.btn-gris:hover { background: #485b6d; }
 
 .botones-dobles {
     display: flex;
@@ -118,16 +103,30 @@ input {
 
 .galeria {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
     margin-top: 15px;
 }
 
-.galeria img {
+.card-foto {
+    background: white;
+    border: 1px solid #cbdcf0;
+    border-radius: 12px;
+    padding: 10px;
+}
+
+.card-foto img {
     width: 100%;
     border-radius: 10px;
-    border: 1px solid #cbdcf0;
-    background: white;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.card-foto p {
+    text-align: left;
+    margin: 4px 0;
+    color: #35506b;
+    font-size: 14px;
 }
 
 .mensaje-vacio {

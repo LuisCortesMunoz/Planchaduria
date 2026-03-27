@@ -1,7 +1,7 @@
 body {
     margin: 0;
     font-family: Arial, sans-serif;
-    background: linear-gradient(135deg, #eef5ff, #dbeafe);
+    background: linear-gradient(135deg, #eaf3ff, #d6e9ff);
     min-height: 100vh;
     display: flex;
     justify-content: center;
@@ -10,79 +10,110 @@ body {
 }
 
 .panel {
-    width: 700px;
+    width: 720px;
     max-width: 100%;
-    background: white;
-    border-radius: 20px;
-    padding: 30px;
-    box-shadow: 0 12px 28px rgba(0,0,0,0.15);
+    background: #ffffff;
+    border-radius: 22px;
+    padding: 32px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15);
 }
 
-h1, h3 {
+h1 {
     text-align: center;
     color: #114b8b;
+    margin-top: 0;
+    margin-bottom: 10px;
 }
 
-p {
-    color: #35506b;
+.subtitulo {
+    text-align: center;
+    color: #46607a;
+    margin-bottom: 28px;
+    line-height: 1.5;
+}
+
+.bloque {
+    margin-bottom: 22px;
 }
 
 label {
     display: block;
-    margin-top: 15px;
     margin-bottom: 8px;
     font-weight: bold;
+    color: #1f3f5b;
 }
 
 input {
     width: 100%;
-    padding: 12px;
-    border-radius: 10px;
-    border: 1px solid #cbdcf0;
+    padding: 13px;
+    border-radius: 12px;
+    border: 1px solid #c9dbef;
     box-sizing: border-box;
+    font-size: 16px;
 }
 
-button {
+.btn {
     width: 100%;
-    margin-top: 15px;
+    margin-top: 14px;
     padding: 14px;
     border: none;
     border-radius: 12px;
     font-size: 16px;
     font-weight: bold;
     cursor: pointer;
-    background: #1976d2;
     color: white;
 }
 
-button:hover {
-    opacity: 0.92;
+.btn-azul {
+    background: #1976d2;
 }
 
-.row {
-    display: flex;
-    gap: 10px;
+.btn-azul:hover {
+    background: #125ea8;
 }
 
-.on {
+.btn-verde {
     background: #2e7d32;
 }
 
-.off {
-    background: #c62828;
+.btn-verde:hover {
+    background: #256628;
 }
 
-.gallery {
+.btn-gris {
     background: #5b728a;
+}
+
+.btn-gris:hover {
+    background: #485b6d;
+}
+
+.botones-dobles {
+    display: flex;
+    gap: 12px;
+}
+
+.botones-dobles .btn {
+    margin-top: 0;
 }
 
 .estado-box,
 .galeria-box {
-    margin-top: 25px;
-    padding: 18px;
-    border-radius: 14px;
     background: #f4f9ff;
     border: 1px solid #d3e4f7;
+    border-radius: 14px;
+    padding: 18px;
+}
+
+.estado-box h3,
+.galeria-box h3 {
+    margin-top: 0;
+    color: #114b8b;
+}
+
+.estado-box p {
+    margin: 8px 0;
+    color: #163d63;
 }
 
 .galeria {
@@ -96,4 +127,10 @@ button:hover {
     width: 100%;
     border-radius: 10px;
     border: 1px solid #cbdcf0;
-} 
+    background: white;
+}
+
+.mensaje-vacio {
+    color: #46607a;
+    font-style: italic;
+}

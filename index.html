@@ -9,38 +9,37 @@
 <body>
     <div class="panel">
         <h1>HMI Planchaduría</h1>
-        <p class="subtitulo">
-            Ingresa un número de usuario de máximo 5 dígitos, la cantidad de prendas y consulta la galería por usuario.
-        </p>
 
         <div class="bloque">
-            <label for="usuario">Número de usuario</label>
-            <input type="number" id="usuario" max="99999" min="0" placeholder="Ejemplo: 12345">
-            <button class="btn btn-azul" onclick="guardarUsuario()">Guardar usuario</button>
+            <label for="usuarioGuardar">Agregar usuario</label>
+            <input type="number" id="usuarioGuardar" placeholder="Máximo 5 dígitos">
+            <button onclick="guardarUsuario()">Guardar usuario</button>
+        </div>
+
+        <div class="bloque">
+            <label for="usuarioProceso">Usuario para proceso</label>
+            <input type="number" id="usuarioProceso" placeholder="Usuario seleccionado">
         </div>
 
         <div class="bloque">
             <label for="cantidad">Cantidad de prendas</label>
             <input type="number" id="cantidad" min="1" placeholder="Ejemplo: 5">
-            <button class="btn btn-azul" onclick="guardarCantidad()">Mandar prendas a la base de datos</button>
+            <button onclick="guardarCantidad()">Actualizar BD e iniciar proceso</button>
         </div>
 
-        <div class="bloque botones-dobles">
-            <button class="btn btn-verde" onclick="activarProceso()">Activar PLC</button>
-            <button class="btn btn-gris" onclick="cargarGaleriaUsuario()">Galería</button>
+        <div class="bloque">
+            <button onclick="cargarGaleria()">Ver galería del usuario</button>
         </div>
 
-        <div class="bloque estado-box">
-            <h3>Estado actual</h3>
+        <div class="estado-box">
             <p><strong>Usuario actual:</strong> <span id="usuarioActual">-</span></p>
-            <p><strong>Activo:</strong> <span id="activo">-</span></p>
             <p><strong>Cantidad:</strong> <span id="cantidadActual">-</span></p>
+            <p><strong>Activo:</strong> <span id="activo">-</span></p>
             <p><strong>Estado:</strong> <span id="estado">-</span></p>
-            <p><strong>Última actualización:</strong> <span id="updatedAt">-</span></p>
         </div>
 
-        <div class="bloque galeria-box">
-            <h3>Galería de fotos del usuario</h3>
+        <div class="galeria-box">
+            <h3>Galería</h3>
             <div id="galeria" class="galeria"></div>
         </div>
     </div>

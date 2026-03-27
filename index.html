@@ -10,22 +10,29 @@
     <div class="panel">
         <h1>HMI Planchaduría</h1>
         <p class="subtitulo">
-            Ingresa la cantidad de prendas, envíalas a la base de datos, activa el PLC y revisa la galería.
+            Ingresa un número de usuario de máximo 5 dígitos, la cantidad de prendas y consulta la galería por usuario.
         </p>
 
         <div class="bloque">
+            <label for="usuario">Número de usuario</label>
+            <input type="number" id="usuario" max="99999" min="0" placeholder="Ejemplo: 12345">
+            <button class="btn btn-azul" onclick="guardarUsuario()">Guardar usuario</button>
+        </div>
+
+        <div class="bloque">
             <label for="cantidad">Cantidad de prendas</label>
-            <input type="number" id="cantidad" min="0" placeholder="Ejemplo: 5">
+            <input type="number" id="cantidad" min="1" placeholder="Ejemplo: 5">
             <button class="btn btn-azul" onclick="guardarCantidad()">Mandar prendas a la base de datos</button>
         </div>
 
         <div class="bloque botones-dobles">
-            <button class="btn btn-verde" onclick="activarPLC()">Activador PLC</button>
-            <button class="btn btn-gris" onclick="cargarGaleria()">Galería</button>
+            <button class="btn btn-verde" onclick="activarProceso()">Activar PLC</button>
+            <button class="btn btn-gris" onclick="cargarGaleriaUsuario()">Galería</button>
         </div>
 
         <div class="bloque estado-box">
             <h3>Estado actual</h3>
+            <p><strong>Usuario actual:</strong> <span id="usuarioActual">-</span></p>
             <p><strong>Activo:</strong> <span id="activo">-</span></p>
             <p><strong>Cantidad:</strong> <span id="cantidadActual">-</span></p>
             <p><strong>Estado:</strong> <span id="estado">-</span></p>
@@ -33,7 +40,7 @@
         </div>
 
         <div class="bloque galeria-box">
-            <h3>Galería de fotos</h3>
+            <h3>Galería de fotos del usuario</h3>
             <div id="galeria" class="galeria"></div>
         </div>
     </div>

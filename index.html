@@ -3,29 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Pranchaduría</title>
+    <title>HMI Planchaduría</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="panel">
-        <h1>Control de Planchaduría</h1>
-        <p>
-            Ingresa la cantidad de prendas, activa o desactiva el sistema y revisa la galería de fotos.
+        <h1>HMI Planchaduría</h1>
+        <p class="subtitulo">
+            Ingresa la cantidad de prendas, envíalas a la base de datos, activa el PLC y revisa la galería.
         </p>
 
-        <label for="cantidad">Cantidad de prendas</label>
-        <input type="number" id="cantidad" min="0" placeholder="Ejemplo: 5">
-
-        <button onclick="guardarCantidad()">Guardar cantidad</button>
-
-        <div class="row">
-            <button class="on" onclick="activarSistema()">ON</button>
-            <button class="off" onclick="desactivarSistema()">OFF</button>
+        <div class="bloque">
+            <label for="cantidad">Cantidad de prendas</label>
+            <input type="number" id="cantidad" min="0" placeholder="Ejemplo: 5">
+            <button class="btn btn-azul" onclick="guardarCantidad()">Mandar prendas a la base de datos</button>
         </div>
 
-        <button class="gallery" onclick="cargarGaleria()">Ver galería</button>
+        <div class="bloque botones-dobles">
+            <button class="btn btn-verde" onclick="activarPLC()">Activador PLC</button>
+            <button class="btn btn-gris" onclick="cargarGaleria()">Galería</button>
+        </div>
 
-        <div class="estado-box">
+        <div class="bloque estado-box">
             <h3>Estado actual</h3>
             <p><strong>Activo:</strong> <span id="activo">-</span></p>
             <p><strong>Cantidad:</strong> <span id="cantidadActual">-</span></p>
@@ -33,12 +32,12 @@
             <p><strong>Última actualización:</strong> <span id="updatedAt">-</span></p>
         </div>
 
-        <div class="galeria-box">
-            <h3>Galería</h3>
+        <div class="bloque galeria-box">
+            <h3>Galería de fotos</h3>
             <div id="galeria" class="galeria"></div>
         </div>
     </div>
 
     <script src="app.js"></script>
-</body> 
+</body>
 </html>

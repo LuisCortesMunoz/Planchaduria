@@ -6,7 +6,7 @@ window.addEventListener("DOMContentLoaded", () => {
     actualizarEstado();
 });
 
-// Step 3: Save quantity
+// Step 3: Save quantity in database
 async function guardarCantidad() {
     const cantidad = parseInt(document.getElementById("cantidad").value);
 
@@ -18,49 +18,48 @@ async function guardarCantidad() {
     try {
         const response = await fetch(`${BACKEND_URL}/set_cantidad`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+                "Content-Type": "application/json"
+            },
             body: JSON.stringify({ cantidad: cantidad })
         });
 
         const data = await response.json();
+
+        if (!response.ok) {
+            alert(data.message || "Error al guardar la cantidad");
+            return;
+        }
+
         alert(data.message);
         actualizarEstado();
     } catch (error) {
-        alert("Error al guardar la cantidad");
+        alert("No se pudo conectar con el backend");
     }
 }
 
-// Step 4: Activate system
-async function activarSistema() {
+// Step 4: Activate PLC
+async function activarPLC() {
     try {
-        const response = await fetch(`${BACKEND_URL}/activar`, {
+        const response = await fetch(`${BACKEND_URL}/activar_plc`, {
             method: "POST"
         });
 
         const data = await response.json();
+
+        if (!response.ok) {
+            alert(data.message || "Error al activar el PLC");
+            return;
+        }
+
         alert(data.message);
         actualizarEstado();
     } catch (error) {
-        alert("Error al activar el sistema");
+        alert("No se pudo conectar con el backend");
     }
 }
 
-// Step 5: Deactivate system
-async function desactivarSistema() {
-    try {
-        const response = await fetch(`${BACKEND_URL}/desactivar`, {
-            method: "POST"
-        });
-
-        const data = await response.json();
-        alert(data.message);
-        actualizarEstado();
-    } catch (error) {
-        alert("Error al desactivar el sistema");
-    }
-}
-
-// Step 6: Update current state
+// Step 5: Update state
 async function actualizarEstado() {
     try {
         const response = await fetch(`${BACKEND_URL}/estado`);
@@ -78,7 +77,7 @@ async function actualizarEstado() {
     }
 }
 
-// Step 7: Load gallery
+// Step 6: Load gallery
 async function cargarGaleria() {
     try {
         const response = await fetch(`${BACKEND_URL}/fotos`);
@@ -88,7 +87,7 @@ async function cargarGaleria() {
         galeria.innerHTML = "";
 
         if (!data.fotos || data.fotos.length === 0) {
-            galeria.innerHTML = "<p>No hay fotos aún.</p>";
+            galeria.innerHTML = `<p class="mensaje-vacio">No hay fotos aún.</p>`;
             return;
         }
 
@@ -99,6 +98,6 @@ async function cargarGaleria() {
             galeria.appendChild(img);
         });
     } catch (error) {
-        alert("Error al cargar la galería");
+        alert("No se pudo cargar la galería");
     }
 }

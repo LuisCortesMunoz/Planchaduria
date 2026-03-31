@@ -1,9 +1,3 @@
-/* =========================================================
-   Planchado Express — Frontend conectado a Render
-   Arquitectura:
-   Frontend (GitHub Pages) -> Render Flask -> Firebase
-========================================================= */
-
 const BACKEND_URL = "https://docker-planchaduria.onrender.com";
 
 const G = {
@@ -66,9 +60,6 @@ async function restoreSession() {
   }
 }
 
-/* =========================================================
-   NAVEGACIÓN
-========================================================= */
 function goTo(screenId) {
   document.querySelectorAll(".screen").forEach(s => {
     s.classList.remove("active");
@@ -79,9 +70,6 @@ function goTo(screenId) {
   if (target) target.classList.add("active");
 }
 
-/* =========================================================
-   API HELPER
-========================================================= */
 async function api(path, method = "GET", body = null, withAuth = false) {
   const headers = { "Content-Type": "application/json" };
 
@@ -128,9 +116,9 @@ function clearSession() {
   localStorage.removeItem("isAdmin");
 }
 
-/* =========================================================
+/* =========================
    AUTH CLIENTE
-========================================================= */
+========================= */
 async function loginClient() {
   const email = val("cl-email").trim();
   const password = val("cl-pass");
@@ -142,6 +130,7 @@ async function loginClient() {
 
   try {
     const data = await api("/api/auth/login", "POST", { email, password });
+
     if (data.user.isAdmin) {
       toast("Usa el acceso de administrador.", "error");
       return;
@@ -197,9 +186,9 @@ async function clientLogout() {
   goTo("screen-splash");
 }
 
-/* =========================================================
+/* =========================
    AUTH ADMIN
-========================================================= */
+========================= */
 async function loginAdmin() {
   const email = val("adm-email").trim();
   const password = val("adm-pass");
@@ -233,9 +222,9 @@ async function adminLogout() {
   goTo("screen-splash");
 }
 
-/* =========================================================
-   CLIENTE
-========================================================= */
+/* =========================
+   NUEVA PRENDA CLIENTE
+========================= */
 function resetNuevaPrenda() {
   G.material = "";
   setVal("np-nombre", "");
@@ -316,6 +305,9 @@ async function npFinalizar() {
   }
 }
 
+/* =========================
+   PANTALLAS CLIENTE
+========================= */
 async function loadMisPrendas() {
   const list = document.getElementById("mis-prendas-list");
   list.innerHTML = '<p class="empty-msg">Cargando…</p>';
@@ -329,16 +321,34 @@ async function loadMisPrendas() {
       return;
     }
 
-    list.innerHTML = pedidos.map(p => `
-      <div class="prenda-item">
-        <div class="prenda-item-info">
-          <span class="prenda-item-name">${esc(p.tipoPrenda)}</span>
-          <span class="prenda-item-sub">${fmtDate(p.fechaIngreso)} · ${esc(p.material || "")} · ${p.cantidad} pza.</span>
-          <span>${badgeHtml(p.Estado)}</span>
+    list.innerHTML = pedidos.map(p => {
+      const fotosHtml = (p.fotos || []).length
+        ? `
+          <div class="pedido-fotos">
+            ${(p.fotos || []).map(f => `
+              <div class="pedido-foto-item">
+                <img src="${BACKEND_URL}${f.url}" alt="Foto ${p.Folio}">
+                <span>${esc(f.fecha_hora || "")}</span>
+              </div>
+            `).join("")}
+          </div>
+        `
+        : `<p class="sin-fotos">Aún no hay fotos para este pedido.</p>`;
+
+      return `
+        <div class="prenda-item pedido-card-col">
+          <div class="prenda-item-top">
+            <div class="prenda-item-info">
+              <span class="prenda-item-name">${esc(p.tipoPrenda)}</span>
+              <span class="prenda-item-sub">${fmtDate(p.fechaIngreso)} · ${esc(p.material || "")} · ${p.cantidad} pza.</span>
+              <span>${badgeHtml(p.Estado)}</span>
+            </div>
+            <span class="prenda-item-id">${esc(p.Folio || "")}</span>
+          </div>
+          ${fotosHtml}
         </div>
-        <span class="prenda-item-id">${esc(p.Folio || "")}</span>
-      </div>
-    `).join("");
+      `;
+    }).join("");
   } catch (err) {
     list.innerHTML = '<p class="empty-msg">Error al cargar prendas.</p>';
   }
@@ -377,13 +387,14 @@ async function buscarPedido() {
 
 async function loadCuenta() {
   if (!G.user) return;
+
   document.getElementById("cuenta-name").textContent = G.user.nombreCompleto || G.user.email;
   document.getElementById("cuenta-email").textContent = G.user.email;
 }
 
-/* =========================================================
+/* =========================
    ADMIN
-========================================================= */
+========================= */
 function showAdmin() {
   document.querySelectorAll(".screen").forEach(s => {
     s.classList.remove("active");
@@ -721,9 +732,9 @@ function renderClientes(clients) {
   `).join("");
 }
 
-/* =========================================================
+/* =========================
    SIDEBAR ADMIN
-========================================================= */
+========================= */
 function toggleSidebar() {
   const s = document.getElementById("adm-sidebar");
   const ov = document.getElementById("sidebar-overlay");
@@ -736,16 +747,16 @@ function closeSidebar() {
   document.getElementById("sidebar-overlay")?.classList.add("hidden");
 }
 
-/* =========================================================
+/* =========================
    HELPERS
-========================================================= */
+========================= */
 function badgeHtml(Estado) {
   const map = {
-    pendiente:  ["b-pendiente", "⏳ Pendiente"],
+    pendiente: ["b-pendiente", "⏳ Pendiente"],
     en_proceso: ["b-en_proceso", "🔄 En proceso"],
-    planchado:  ["b-planchado", "👔 Planchado"],
-    listo:      ["b-listo", "✅ Listo"],
-    entregado:  ["b-entregado", "🏠 Entregado"]
+    planchado: ["b-planchado", "👔 Planchado"],
+    listo: ["b-listo", "✅ Listo"],
+    entregado: ["b-entregado", "🏠 Entregado"]
   };
   const [cls, label] = map[Estado] || ["b-pendiente", Estado || "—"];
   return `<span class="badge ${cls}">${label}</span>`;

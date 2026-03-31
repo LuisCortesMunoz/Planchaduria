@@ -1,30 +1,23 @@
 /* ══════════════════════════════════════════════════════════════
    Planchado Express — app.js
-   Frontend → Backend Flask(Render) → Firebase
-   Se conserva diseño y pantallas del HTML actual
+   Frontend → Backend(Render) → Firebase
 ══════════════════════════════════════════════════════════════ */
 
-/* ══════════════════════════════════════════════
-   1. CONFIG
-══════════════════════════════════════════════ */
 const API_BASE = "https://docker-planchaduria.onrender.com";
 
 const firebaseConfig = {
-  apiKey:            "AIzaSyBVR2rFkIiBDPigHiqU82cV-iMyZvXza98",
-  authDomain:        "db-planchaduria.firebaseapp.com",
-  databaseURL:       "https://db-planchaduria-default-rtdb.firebaseio.com",
-  projectId:         "db-planchaduria",
-  storageBucket:     "db-planchaduria.firebasestorage.app",
+  apiKey: "AIzaSyBVR2rFkIiBDPigHiqU82cV-iMyZvXza98",
+  authDomain: "db-planchaduria.firebaseapp.com",
+  databaseURL: "https://db-planchaduria-default-rtdb.firebaseio.com",
+  projectId: "db-planchaduria",
+  storageBucket: "db-planchaduria.firebasestorage.app",
   messagingSenderId: "88489323952",
-  appId:             "1:88489323952:web:7df0eb2d438d62430f3a75",
-  measurementId:     "G-D16JVMYYRM"
+  appId: "1:88489323952:web:7df0eb2d438d62430f3a75",
+  measurementId: "G-D16JVMYYRM"
 };
 
 const ADMIN_UID = "HrGtBnzEtBXLK19YpeI8wTAaSM42";
 
-/* ══════════════════════════════════════════════
-   2. ESTADO GLOBAL
-══════════════════════════════════════════════ */
 const G = {
   auth: null,
   user: null,
@@ -37,16 +30,13 @@ const G = {
   clients: []
 };
 
-/* ══════════════════════════════════════════════
-   3. INIT
-══════════════════════════════════════════════ */
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     firebase.initializeApp(firebaseConfig);
     G.auth = firebase.auth();
-    console.log("✅ Firebase Auth conectado");
+    console.log("✅ Firebase Auth conectado.");
   } catch (err) {
-    console.error(err);
+    console.error("Firebase init error:", err);
     toast("Error al iniciar Firebase Auth.", "error");
     return;
   }
@@ -56,8 +46,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     G.isAdmin = !!(user && user.uid === ADMIN_UID);
 
     if (!user) {
-      goTo("screen-splash");
       hideAdminScreen();
+      goTo("screen-splash");
       return;
     }
 
@@ -74,7 +64,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 /* ══════════════════════════════════════════════
-   4. API HELPERS
+   HELPERS API
 ══════════════════════════════════════════════ */
 async function getIdToken() {
   const user = G.auth.currentUser;
@@ -94,28 +84,27 @@ async function apiFetch(path, options = {}) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers
   });
 
-  let data = null;
+  let data = {};
   try {
-    data = await res.json();
+    data = await response.json();
   } catch (_) {
-    data = null;
+    data = {};
   }
 
-  if (!res.ok) {
-    const msg = data?.error || `Error HTTP ${res.status}`;
-    throw new Error(msg);
+  if (!response.ok) {
+    throw new Error(data.error || `Error HTTP ${response.status}`);
   }
 
   return data;
 }
 
 /* ══════════════════════════════════════════════
-   5. NAV
+   NAV
 ══════════════════════════════════════════════ */
 function goTo(screenId) {
   document.querySelectorAll(".screen").forEach(s => {
@@ -124,10 +113,7 @@ function goTo(screenId) {
   });
 
   const target = document.getElementById(screenId);
-  if (target) {
-    target.classList.add("active");
-    if (screenId === "screen-admin") target.style.display = "flex";
-  }
+  if (target) target.classList.add("active");
 }
 
 function showAdmin() {
@@ -146,11 +132,11 @@ function hideAdminScreen() {
 }
 
 /* ══════════════════════════════════════════════
-   6. AUTH CLIENTE
+   AUTH CLIENTE
 ══════════════════════════════════════════════ */
 async function loginClient() {
   const email = val("cl-email").trim();
-  const pass  = val("cl-pass");
+  const pass = val("cl-pass");
 
   if (!email || !pass) {
     toast("Completa todos los campos.", "error");
@@ -173,14 +159,14 @@ async function loginClient() {
 }
 
 async function registerClient() {
-  const nombre   = val("reg-nombre").trim();
+  const nombre = val("reg-nombre").trim();
   const apellido = val("reg-apellido").trim();
-  const email    = val("reg-email").trim();
-  const phone    = val("reg-phone").trim();
-  const pass     = val("reg-pass");
+  const email = val("reg-email").trim();
+  const phone = val("reg-phone").trim();
+  const pass = val("reg-pass");
 
   if (!nombre || !apellido || !email || !pass) {
-    toast("Completa los campos obligatorios.", "error");
+    toast("Completa todos los campos obligatorios.", "error");
     return;
   }
 
@@ -206,7 +192,7 @@ async function registerClient() {
       })
     });
 
-    toast("¡Cuenta creada correctamente!", "success");
+    toast("¡Cuenta creada! Bienvenido.", "success");
   } catch (err) {
     toast(authError(err), "error");
   }
@@ -222,14 +208,14 @@ async function clientLogout() {
 }
 
 /* ══════════════════════════════════════════════
-   7. AUTH ADMIN
+   AUTH ADMIN
 ══════════════════════════════════════════════ */
 async function loginAdmin() {
   const email = val("adm-email").trim();
-  const pass  = val("adm-pass");
+  const pass = val("adm-pass");
 
   if (!email || !pass) {
-    toast("Completa el correo y la contraseña.", "error");
+    toast("Completa el correo y contraseña.", "error");
     return;
   }
 
@@ -238,11 +224,11 @@ async function loginAdmin() {
 
     if (cred.user.uid !== ADMIN_UID) {
       await G.auth.signOut();
-      toast("Acceso denegado. No eres administrador.", "error");
+      toast("Acceso denegado. No tienes permisos de administrador.", "error");
       return;
     }
 
-    toast("Bienvenido al panel.", "success");
+    toast("¡Bienvenido al panel!", "success");
   } catch (err) {
     toast(authError(err), "error");
   }
@@ -259,7 +245,7 @@ async function adminLogout() {
 }
 
 /* ══════════════════════════════════════════════
-   8. CLIENTE — NUEVA PRENDA
+   NUEVA PRENDA CLIENTE
 ══════════════════════════════════════════════ */
 function resetNuevaPrenda() {
   G.material = "";
@@ -283,7 +269,7 @@ function selectMaterial(btn) {
 }
 
 function npContinuar() {
-  const nombre   = val("np-nombre").trim();
+  const nombre = val("np-nombre").trim();
   const cantidad = parseInt(val("np-cantidad")) || 0;
 
   if (!nombre) {
@@ -336,7 +322,7 @@ async function npFinalizar() {
       body: JSON.stringify(payload)
     });
 
-    toast(`Tu prenda fue registrada con folio ${data.order?.Folio || ""}`, "success");
+    toast(`Tu prenda fue registrada con éxito ${data.order?.Folio || ""}`, "success");
     goTo("screen-menu-client");
     resetNuevaPrenda();
   } catch (err) {
@@ -346,9 +332,11 @@ async function npFinalizar() {
 }
 
 /* ══════════════════════════════════════════════
-   9. CLIENTE — PANTALLAS
+   CLIENTE - PANTALLAS
 ══════════════════════════════════════════════ */
 async function loadMisPrendas() {
+  if (!G.user) return;
+
   const list = document.getElementById("mis-prendas-list");
   list.innerHTML = '<p class="empty-msg">Cargando…</p>';
 
@@ -379,13 +367,14 @@ async function loadMisPrendas() {
 
 async function buscarPedido() {
   const FolioIngresado = val("tracking-input").trim().toUpperCase();
+
   if (!FolioIngresado) {
     toast("Ingresa un ID de seguimiento.", "error");
     return;
   }
 
   const result = document.getElementById("tracking-result");
-  const empty  = document.getElementById("tracking-empty");
+  const empty = document.getElementById("tracking-empty");
 
   result.classList.add("hidden");
   empty.style.display = "none";
@@ -394,16 +383,16 @@ async function buscarPedido() {
     const data = await apiFetch(`/api/orders/track/${encodeURIComponent(FolioIngresado)}`);
     const p = data.order;
 
-    document.getElementById("tr-id").textContent      = p.Folio || FolioIngresado;
-    document.getElementById("tr-prenda").textContent  = p.tipoPrenda || "—";
+    document.getElementById("tr-id").textContent = p.Folio || FolioIngresado;
+    document.getElementById("tr-prenda").textContent = p.tipoPrenda || "—";
     document.getElementById("tr-cliente").textContent = p.cliente || "—";
     document.getElementById("tr-entrega").textContent = fmtDate(p.FechaEntrega);
-    document.getElementById("tr-estado").textContent  = estadoLabel(p.Estado);
+    document.getElementById("tr-estado").textContent = estadoLabel(p.Estado);
 
     result.classList.remove("hidden");
   } catch (err) {
     empty.style.display = "block";
-    empty.textContent = err.message || "No se encontró el pedido.";
+    empty.textContent = err.message || `No se encontró ningún pedido con ID ${FolioIngresado}.`;
   }
 }
 
@@ -412,25 +401,26 @@ async function loadCuenta() {
 
   try {
     const data = await apiFetch("/api/me/profile");
-    const p = data.profile || {};
+    const d = data.profile || {};
 
-    const nombre = `${p.nombre || ""} ${p.apellido || ""}`.trim() || G.user.displayName || G.user.email;
-    document.getElementById("cuenta-name").textContent  = nombre;
-    document.getElementById("cuenta-email").textContent = p.email || G.user.email || "—";
+    const nombre = `${d.nombre || ""} ${d.apellido || ""}`.trim();
+    document.getElementById("cuenta-name").textContent = nombre || G.user.displayName || G.user.email;
+    document.getElementById("cuenta-email").textContent = d.email || G.user.email;
   } catch (err) {
-    document.getElementById("cuenta-name").textContent  = G.user.displayName || G.user.email || "—";
-    document.getElementById("cuenta-email").textContent = G.user.email || "—";
+    document.getElementById("cuenta-name").textContent = G.user.displayName || G.user.email;
+    document.getElementById("cuenta-email").textContent = G.user.email;
   }
 }
 
 /* ══════════════════════════════════════════════
-   10. ADMIN — DATA
+   ADMIN DATA
 ══════════════════════════════════════════════ */
 async function reloadAdminData() {
   await Promise.all([
     loadAdminOrders(),
     loadAdminClients()
   ]);
+
   updateMetrics();
   renderDashRecent();
   applyFilters();
@@ -459,10 +449,11 @@ async function loadAdminClients() {
 }
 
 /* ══════════════════════════════════════════════
-   11. ADMIN — NAV
+   ADMIN NAV
 ══════════════════════════════════════════════ */
 function admNav(btn) {
   const targetId = btn.dataset.view;
+
   document.querySelectorAll(".adm-nav-btn").forEach(b => b.classList.remove("active"));
   btn.classList.add("active");
 
@@ -471,9 +462,9 @@ function admNav(btn) {
 
   const titles = {
     "adm-view-dashboard": "Dashboard",
-    "adm-view-pedidos":   "Pedidos",
-    "adm-view-nuevo":     "Nuevo Pedido",
-    "adm-view-clientes":  "Clientes"
+    "adm-view-pedidos": "Pedidos",
+    "adm-view-nuevo": "Nuevo Pedido",
+    "adm-view-clientes": "Clientes"
   };
 
   document.getElementById("adm-page-title").textContent = titles[targetId] || "";
@@ -486,25 +477,25 @@ function admNavById(viewId) {
 }
 
 /* ══════════════════════════════════════════════
-   12. ADMIN — MÉTRICAS Y TABLAS
+   ADMIN DASHBOARD
 ══════════════════════════════════════════════ */
 function updateMetrics() {
-  const cnt = { pendiente:0, en_proceso:0, planchado:0, listo:0, entregado:0 };
+  const cnt = { pendiente: 0, en_proceso: 0, planchado: 0, listo: 0, entregado: 0 };
 
   G.orders.forEach(o => {
     if (cnt[o.Estado] !== undefined) cnt[o.Estado]++;
   });
 
   document.getElementById("m-total").textContent = G.orders.length;
-  document.getElementById("m-pend").textContent  = cnt.pendiente;
-  document.getElementById("m-proc").textContent  = cnt.en_proceso + cnt.planchado;
-  document.getElementById("m-list").textContent  = cnt.listo;
-  document.getElementById("m-ent").textContent   = cnt.entregado;
+  document.getElementById("m-pend").textContent = cnt.pendiente;
+  document.getElementById("m-proc").textContent = cnt.en_proceso + cnt.planchado;
+  document.getElementById("m-list").textContent = cnt.listo;
+  document.getElementById("m-ent").textContent = cnt.entregado;
 }
 
 function renderDashRecent() {
   const tbody = document.getElementById("dash-tbody");
-  const list  = G.orders.slice(0, 6);
+  const list = G.orders.slice(0, 6);
 
   if (!list.length) {
     tbody.innerHTML = '<tr><td colspan="6" class="t-empty">Sin pedidos aún.</td></tr>';
@@ -527,19 +518,20 @@ function renderDashRecent() {
   `).join("");
 }
 
+/* ══════════════════════════════════════════════
+   ADMIN PEDIDOS + FILTROS
+══════════════════════════════════════════════ */
 function applyFilters() {
   const search = (document.getElementById("adm-search")?.value || "").toLowerCase();
   const status = document.getElementById("adm-filter-st")?.value || "";
 
   G.filtered = G.orders.filter(o => {
-    const matchText =
-      !search ||
+    const matchText = !search ||
       (o.cliente || "").toLowerCase().includes(search) ||
       (o.tipoPrenda || "").toLowerCase().includes(search) ||
       (o.Folio || "").toLowerCase().includes(search);
 
     const matchSt = !status || o.Estado === status;
-
     return matchText && matchSt;
   });
 
@@ -576,10 +568,10 @@ function renderPedidosTable() {
 }
 
 /* ══════════════════════════════════════════════
-   13. ADMIN — FORM
+   ADMIN FORM
 ══════════════════════════════════════════════ */
 function admOpenNew() {
-  ["adm-f-cliente","adm-f-telefono","adm-f-prenda","adm-f-cantidad","adm-f-precio","adm-f-notas"].forEach(id => setVal(id,""));
+  ["adm-f-cliente","adm-f-telefono","adm-f-prenda","adm-f-cantidad","adm-f-precio","adm-f-notas"].forEach(id => setVal(id, ""));
   setVal("adm-edit-id", "");
   setVal("adm-f-material", "");
   setVal("adm-f-ingreso", today());
@@ -645,7 +637,7 @@ async function admSaveOrder() {
     return;
   }
 
-  const payload = {
+  const data = {
     cliente,
     telefono: val("adm-f-telefono").trim(),
     tipoPrenda: prenda,
@@ -659,20 +651,19 @@ async function admSaveOrder() {
 
   try {
     if (editId) {
-      payload.Estado = val("adm-f-estado");
+      data.Estado = val("adm-f-estado");
       await apiFetch(`/api/admin/orders/${editId}`, {
         method: "PUT",
-        body: JSON.stringify(payload)
+        body: JSON.stringify(data)
       });
-      toast("Pedido actualizado.", "success");
     } else {
       await apiFetch("/api/admin/orders", {
         method: "POST",
-        body: JSON.stringify(payload)
+        body: JSON.stringify(data)
       });
-      toast("Pedido creado.", "success");
     }
 
+    toast("Pedido guardado. ✅", "success");
     admOpenNew();
     await reloadAdminData();
     admNavById("adm-view-pedidos");
@@ -683,7 +674,7 @@ async function admSaveOrder() {
 }
 
 /* ══════════════════════════════════════════════
-   14. ADMIN — MODAL
+   ADMIN MODAL
 ══════════════════════════════════════════════ */
 function openModal(id) {
   const o = G.orders.find(x => x.id === id);
@@ -702,7 +693,7 @@ function openModal(id) {
       <div class="det-item"><span class="det-lbl">Prenda</span><span class="det-val">${esc(o.tipoPrenda || "—")}</span></div>
       <div class="det-item"><span class="det-lbl">Material</span><span class="det-val">${esc(o.material || "—")}</span></div>
       <div class="det-item"><span class="det-lbl">Cantidad</span><span class="det-val">${o.cantidad || 1} pza.</span></div>
-      <div class="det-item"><span class="det-lbl">Precio</span><span class="det-val">${o.precio ? `$${Number(o.precio).toFixed(2)} MXN` : "—"}</span></div>
+      <div class="det-item"><span class="det-lbl">Precio</span><span class="det-val">${o.precio ? `$${parseFloat(o.precio).toFixed(2)} MXN` : "—"}</span></div>
       <div class="det-item"><span class="det-lbl">Ingreso</span><span class="det-val">${fmtDate(o.fechaIngreso)}</span></div>
       <div class="det-item"><span class="det-lbl">Entrega est.</span><span class="det-val">${fmtDate(o.FechaEntrega)}</span></div>
       ${o.notas ? `<div class="det-item full"><span class="det-lbl">Notas</span><span class="det-val">${esc(o.notas)}</span></div>` : ""}
@@ -729,12 +720,12 @@ async function admUpdateStatus() {
       body: JSON.stringify({ Estado: newEstado })
     });
 
-    toast("Estado actualizado.", "success");
+    toast("Estado actualizado. ✅", "success");
     closeModal();
     await reloadAdminData();
   } catch (err) {
     console.error(err);
-    toast(err.message || "Error al actualizar estado.", "error");
+    toast(err.message || "Error al actualizar.", "error");
   }
 }
 
@@ -756,7 +747,10 @@ async function executeDelete() {
   if (!G.delId) return;
 
   try {
-    await apiFetch(`/api/admin/orders/${G.delId}`, { method: "DELETE" });
+    await apiFetch(`/api/admin/orders/${G.delId}`, {
+      method: "DELETE"
+    });
+
     toast("Pedido eliminado.", "info");
     closeConfirm();
     closeModal();
@@ -768,7 +762,7 @@ async function executeDelete() {
 }
 
 /* ══════════════════════════════════════════════
-   15. CLIENTES
+   CLIENTES ADMIN
 ══════════════════════════════════════════════ */
 function renderClientes() {
   const tbody = document.getElementById("clientes-tbody");
@@ -790,10 +784,10 @@ function renderClientes() {
 }
 
 /* ══════════════════════════════════════════════
-   16. SIDEBAR ADMIN
+   SIDEBAR ADMIN
 ══════════════════════════════════════════════ */
 function toggleSidebar() {
-  const s  = document.getElementById("adm-sidebar");
+  const s = document.getElementById("adm-sidebar");
   const ov = document.getElementById("sidebar-overlay");
   s.classList.toggle("open");
   ov.classList.toggle("hidden", !s.classList.contains("open"));
@@ -805,15 +799,15 @@ function closeSidebar() {
 }
 
 /* ══════════════════════════════════════════════
-   17. HELPERS
+   HELPERS
 ══════════════════════════════════════════════ */
 function badgeHtml(Estado) {
   const map = {
-    pendiente:  ["b-pendiente",  "⏳ Pendiente"],
+    pendiente: ["b-pendiente", "⏳ Pendiente"],
     en_proceso: ["b-en_proceso", "🔄 En proceso"],
-    planchado:  ["b-planchado",  "👔 Planchado"],
-    listo:      ["b-listo",      "✅ Listo"],
-    entregado:  ["b-entregado",  "🏠 Entregado"]
+    planchado: ["b-planchado", "👔 Planchado"],
+    listo: ["b-listo", "✅ Listo"],
+    entregado: ["b-entregado", "🏠 Entregado"]
   };
   const [cls, label] = map[Estado] || ["b-pendiente", Estado || "—"];
   return `<span class="badge ${cls}">${label}</span>`;
@@ -821,22 +815,21 @@ function badgeHtml(Estado) {
 
 function estadoLabel(Estado) {
   const labels = {
-    pendiente:  "Pendiente",
+    pendiente: "Pendiente",
     en_proceso: "En proceso",
-    planchado:  "Planchado",
-    listo:      "Listo para entrega",
-    entregado:  "Entregado"
+    planchado: "Planchado",
+    listo: "Listo para entrega",
+    entregado: "Entregado"
   };
   return labels[Estado] || Estado || "—";
 }
 
-function fmtDate(iso) {
-  if (!iso) return "—";
-  if (typeof iso !== "string") return "—";
+function fmtDate(value) {
+  if (!value) return "—";
 
-  const onlyDate = iso.includes("T") ? iso.split("T")[0] : iso;
-  const parts = onlyDate.split("-");
-  if (parts.length !== 3) return iso;
+  const iso = String(value).includes("T") ? String(value).split("T")[0] : String(value);
+  const parts = iso.split("-");
+  if (parts.length !== 3) return String(value);
 
   const [y, m, d] = parts;
   const meses = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
@@ -880,19 +873,19 @@ function togglePass(inputId, btn) {
 
 function authError(err) {
   const m = {
-    "auth/user-not-found":       "Correo no registrado.",
-    "auth/wrong-password":       "Contraseña incorrecta.",
-    "auth/invalid-email":        "Correo inválido.",
+    "auth/user-not-found": "Correo no registrado.",
+    "auth/wrong-password": "Contraseña incorrecta.",
+    "auth/invalid-email": "Correo inválido.",
     "auth/email-already-in-use": "Este correo ya está registrado.",
-    "auth/weak-password":        "Contraseña muy débil.",
-    "auth/too-many-requests":    "Demasiados intentos. Intenta más tarde.",
-    "auth/invalid-credential":   "Credenciales incorrectas."
+    "auth/weak-password": "Contraseña muy débil (mínimo 6 caracteres).",
+    "auth/too-many-requests": "Demasiados intentos. Intenta más tarde.",
+    "auth/invalid-credential": "Credenciales incorrectas."
   };
-  return m[err.code] || err.message || "Error de autenticación.";
+  return m[err.code] || `Error: ${err.message}`;
 }
 
 function toast(msg, type = "info") {
-  const icons = { success:"✅", error:"❌", info:"ℹ️" };
+  const icons = { success: "✅", error: "❌", info: "ℹ️" };
   const c = document.getElementById("toast-container");
   const el = document.createElement("div");
   el.className = `toast ${type}`;

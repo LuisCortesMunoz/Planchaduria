@@ -1,160 +1,158 @@
-/* ══════════════════════════════════════════════════════════════
-   Planchado Express — app.js
-   Frontend → Backend(Render) → Firebase
-══════════════════════════════════════════════════════════════ */
+/* =========================================================
+   Planchado Express — Frontend conectado a Render
+   Arquitectura:
+   Frontend (GitHub Pages) -> Render Flask -> Firebase
+========================================================= */
 
-const API_BASE = "https://docker-planchaduria.onrender.com";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBVR2rFkIiBDPigHiqU82cV-iMyZvXza98",
-  authDomain: "db-planchaduria.firebaseapp.com",
-  databaseURL: "https://db-planchaduria-default-rtdb.firebaseio.com",
-  projectId: "db-planchaduria",
-  storageBucket: "db-planchaduria.firebasestorage.app",
-  messagingSenderId: "88489323952",
-  appId: "1:88489323952:web:7df0eb2d438d62430f3a75",
-  measurementId: "G-D16JVMYYRM"
-};
-
-const ADMIN_UID = "HrGtBnzEtBXLK19YpeI8wTAaSM42";
+const BACKEND_URL = "https://docker-planchaduria.onrender.com";
 
 const G = {
-  auth: null,
-  user: null,
-  isAdmin: false,
+  token: localStorage.getItem("token") || "",
+  user: JSON.parse(localStorage.getItem("user") || "null"),
+  isAdmin: JSON.parse(localStorage.getItem("isAdmin") || "false"),
   orders: [],
   filtered: [],
   currentId: null,
   delId: null,
-  material: "",
-  clients: []
+  material: ""
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
-  try {
-    firebase.initializeApp(firebaseConfig);
-    G.auth = firebase.auth();
-    console.log("✅ Firebase Auth conectado.");
-  } catch (err) {
-    console.error("Firebase init error:", err);
-    toast("Error al iniciar Firebase Auth.", "error");
+  bindModalClosers();
+  await restoreSession();
+});
+
+function bindModalClosers() {
+  document.getElementById("modal-overlay")?.addEventListener("click", e => {
+    if (e.target === document.getElementById("modal-overlay")) closeModal();
+  });
+
+  document.getElementById("confirm-overlay")?.addEventListener("click", e => {
+    if (e.target === document.getElementById("confirm-overlay")) closeConfirm();
+  });
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      closeModal();
+      closeConfirm();
+    }
+  });
+}
+
+async function restoreSession() {
+  if (!G.token) {
+    goTo("screen-splash");
     return;
   }
 
-  G.auth.onAuthStateChanged(async (user) => {
-    G.user = user || null;
-    G.isAdmin = !!(user && user.uid === ADMIN_UID);
+  try {
+    const data = await api("/api/auth/me", "GET", null, true);
+    G.user = data.user;
+    G.isAdmin = data.user.isAdmin;
 
-    if (!user) {
-      hideAdminScreen();
-      goTo("screen-splash");
-      return;
-    }
+    localStorage.setItem("user", JSON.stringify(G.user));
+    localStorage.setItem("isAdmin", JSON.stringify(G.isAdmin));
 
     if (G.isAdmin) {
       showAdmin();
-      document.getElementById("adm-user-pill").textContent = (user.email || "Admin").split("@")[0];
-      await reloadAdminData();
+      await loadAdminData();
     } else {
-      hideAdminScreen();
       goTo("screen-menu-client");
-      await loadCuenta();
+      loadCuenta();
     }
-  });
-});
-
-/* ══════════════════════════════════════════════
-   HELPERS API
-══════════════════════════════════════════════ */
-async function getIdToken() {
-  const user = G.auth.currentUser;
-  if (!user) return null;
-  return await user.getIdToken(true);
+  } catch (err) {
+    clearSession();
+    goTo("screen-splash");
+  }
 }
 
-async function apiFetch(path, options = {}) {
-  const token = await getIdToken();
-
-  const headers = {
-    "Content-Type": "application/json",
-    ...(options.headers || {})
-  };
-
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers
-  });
-
-  let data = {};
-  try {
-    data = await response.json();
-  } catch (_) {
-    data = {};
-  }
-
-  if (!response.ok) {
-    throw new Error(data.error || `Error HTTP ${response.status}`);
-  }
-
-  return data;
-}
-
-/* ══════════════════════════════════════════════
-   NAV
-══════════════════════════════════════════════ */
+/* =========================================================
+   NAVEGACIÓN
+========================================================= */
 function goTo(screenId) {
   document.querySelectorAll(".screen").forEach(s => {
     s.classList.remove("active");
-    if (s.id === "screen-admin") s.style.display = "none";
+    s.style.display = "";
   });
 
   const target = document.getElementById(screenId);
   if (target) target.classList.add("active");
 }
 
-function showAdmin() {
-  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
-  const adminScreen = document.getElementById("screen-admin");
-  adminScreen.style.display = "flex";
-  adminScreen.classList.add("active");
-}
+/* =========================================================
+   API HELPER
+========================================================= */
+async function api(path, method = "GET", body = null, withAuth = false) {
+  const headers = { "Content-Type": "application/json" };
 
-function hideAdminScreen() {
-  const adminScreen = document.getElementById("screen-admin");
-  if (adminScreen) {
-    adminScreen.classList.remove("active");
-    adminScreen.style.display = "none";
+  if (withAuth && G.token) {
+    headers["Authorization"] = `Bearer ${G.token}`;
   }
+
+  const response = await fetch(`${BACKEND_URL}${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : null
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data.ok === false) {
+    throw new Error(data.message || "Error de servidor");
+  }
+
+  return data;
 }
 
-/* ══════════════════════════════════════════════
+function setSession(token, user) {
+  G.token = token;
+  G.user = user;
+  G.isAdmin = !!user.isAdmin;
+
+  localStorage.setItem("token", token);
+  localStorage.setItem("user", JSON.stringify(user));
+  localStorage.setItem("isAdmin", JSON.stringify(G.isAdmin));
+}
+
+function clearSession() {
+  G.token = "";
+  G.user = null;
+  G.isAdmin = false;
+  G.orders = [];
+  G.filtered = [];
+  G.currentId = null;
+  G.delId = null;
+
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  localStorage.removeItem("isAdmin");
+}
+
+/* =========================================================
    AUTH CLIENTE
-══════════════════════════════════════════════ */
+========================================================= */
 async function loginClient() {
   const email = val("cl-email").trim();
-  const pass = val("cl-pass");
+  const password = val("cl-pass");
 
-  if (!email || !pass) {
+  if (!email || !password) {
     toast("Completa todos los campos.", "error");
     return;
   }
 
   try {
-    const cred = await G.auth.signInWithEmailAndPassword(email, pass);
-
-    if (cred.user.uid === ADMIN_UID) {
-      await G.auth.signOut();
+    const data = await api("/api/auth/login", "POST", { email, password });
+    if (data.user.isAdmin) {
       toast("Usa el acceso de administrador.", "error");
       return;
     }
 
+    setSession(data.token, data.user);
     toast("¡Bienvenido de nuevo!", "success");
+    goTo("screen-menu-client");
+    loadCuenta();
   } catch (err) {
-    toast(authError(err), "error");
+    toast(err.message, "error");
   }
 }
 
@@ -162,91 +160,82 @@ async function registerClient() {
   const nombre = val("reg-nombre").trim();
   const apellido = val("reg-apellido").trim();
   const email = val("reg-email").trim();
-  const phone = val("reg-phone").trim();
-  const pass = val("reg-pass");
+  const telefono = val("reg-phone").trim();
+  const password = val("reg-pass");
 
-  if (!nombre || !apellido || !email || !pass) {
+  if (!nombre || !apellido || !email || !password) {
     toast("Completa todos los campos obligatorios.", "error");
     return;
   }
 
-  if (pass.length < 6) {
+  if (password.length < 6) {
     toast("La contraseña debe tener al menos 6 caracteres.", "error");
     return;
   }
 
   try {
-    const cred = await G.auth.createUserWithEmailAndPassword(email, pass);
-
-    await cred.user.updateProfile({
-      displayName: `${nombre} ${apellido}`.trim()
+    const data = await api("/api/auth/register", "POST", {
+      nombre,
+      apellido,
+      email,
+      telefono,
+      password
     });
 
-    await apiFetch("/api/me/profile", {
-      method: "POST",
-      body: JSON.stringify({
-        nombre,
-        apellido,
-        telefono: phone,
-        email
-      })
-    });
-
+    setSession(data.token, data.user);
     toast("¡Cuenta creada! Bienvenido.", "success");
+    goTo("screen-menu-client");
+    loadCuenta();
   } catch (err) {
-    toast(authError(err), "error");
+    toast(err.message, "error");
   }
 }
 
 async function clientLogout() {
-  try {
-    await G.auth.signOut();
-    toast("Sesión cerrada.", "info");
-  } catch (err) {
-    toast("No se pudo cerrar sesión.", "error");
-  }
+  clearSession();
+  toast("Sesión cerrada.", "info");
+  goTo("screen-splash");
 }
 
-/* ══════════════════════════════════════════════
+/* =========================================================
    AUTH ADMIN
-══════════════════════════════════════════════ */
+========================================================= */
 async function loginAdmin() {
   const email = val("adm-email").trim();
-  const pass = val("adm-pass");
+  const password = val("adm-pass");
 
-  if (!email || !pass) {
-    toast("Completa el correo y contraseña.", "error");
+  if (!email || !password) {
+    toast("Completa correo y contraseña.", "error");
     return;
   }
 
   try {
-    const cred = await G.auth.signInWithEmailAndPassword(email, pass);
+    const data = await api("/api/auth/login", "POST", { email, password });
 
-    if (cred.user.uid !== ADMIN_UID) {
-      await G.auth.signOut();
+    if (!data.user.isAdmin) {
       toast("Acceso denegado. No tienes permisos de administrador.", "error");
       return;
     }
 
+    setSession(data.token, data.user);
     toast("¡Bienvenido al panel!", "success");
+    showAdmin();
+    await loadAdminData();
   } catch (err) {
-    toast(authError(err), "error");
+    toast(err.message, "error");
   }
 }
 
 async function adminLogout() {
-  try {
-    await G.auth.signOut();
-    closeSidebar();
-    toast("Sesión cerrada.", "info");
-  } catch (err) {
-    toast("No se pudo cerrar sesión.", "error");
-  }
+  clearSession();
+  closeSidebar();
+  toast("Sesión cerrada.", "info");
+  goTo("screen-splash");
 }
 
-/* ══════════════════════════════════════════════
-   NUEVA PRENDA CLIENTE
-══════════════════════════════════════════════ */
+/* =========================================================
+   CLIENTE
+========================================================= */
 function resetNuevaPrenda() {
   G.material = "";
   setVal("np-nombre", "");
@@ -276,10 +265,12 @@ function npContinuar() {
     toast("Escribe el nombre de la prenda.", "error");
     return;
   }
+
   if (cantidad < 1) {
     toast("La cantidad debe ser al menos 1.", "error");
     return;
   }
+
   if (!G.material) {
     toast("Selecciona el material.", "error");
     return;
@@ -297,78 +288,66 @@ function npVolver() {
 }
 
 async function npFinalizar() {
-  if (!G.user) {
+  if (!G.token) {
     toast("Debes iniciar sesión.", "error");
     return;
   }
 
-  const FechaEntrega = val("np-entrega");
-  if (!FechaEntrega) {
+  const fechaEntrega = val("np-entrega");
+  if (!fechaEntrega) {
     toast("Selecciona la fecha de entrega.", "error");
     return;
   }
 
-  const payload = {
-    tipoPrenda: val("np-nombre").trim(),
-    material: G.material,
-    cantidad: parseInt(val("np-cantidad")) || 1,
-    FechaEntrega,
-    notas: val("np-instrucciones").trim()
-  };
-
   try {
-    const data = await apiFetch("/api/orders", {
-      method: "POST",
-      body: JSON.stringify(payload)
-    });
+    await api("/api/orders", "POST", {
+      tipoPrenda: val("np-nombre").trim(),
+      material: G.material,
+      cantidad: parseInt(val("np-cantidad")) || 1,
+      fechaEntrega,
+      notas: val("np-instrucciones").trim()
+    }, true);
 
-    toast(`Tu prenda fue registrada con éxito ${data.order?.Folio || ""}`, "success");
-    goTo("screen-menu-client");
+    toast("Tu prenda fue registrada con éxito.", "success");
     resetNuevaPrenda();
+    goTo("screen-menu-client");
   } catch (err) {
-    console.error(err);
-    toast(err.message || "Error al registrar la prenda.", "error");
+    toast(err.message, "error");
   }
 }
 
-/* ══════════════════════════════════════════════
-   CLIENTE - PANTALLAS
-══════════════════════════════════════════════ */
 async function loadMisPrendas() {
-  if (!G.user) return;
-
   const list = document.getElementById("mis-prendas-list");
   list.innerHTML = '<p class="empty-msg">Cargando…</p>';
 
   try {
-    const data = await apiFetch("/api/orders/mine");
-    const items = data.orders || [];
+    const data = await api("/api/orders/my", "GET", null, true);
+    const pedidos = data.orders || [];
 
-    if (!items.length) {
+    if (!pedidos.length) {
       list.innerHTML = '<p class="empty-msg">No tienes prendas registradas aún.</p>';
       return;
     }
 
-    list.innerHTML = items.map(p => `
+    list.innerHTML = pedidos.map(p => `
       <div class="prenda-item">
         <div class="prenda-item-info">
           <span class="prenda-item-name">${esc(p.tipoPrenda)}</span>
-          <span class="prenda-item-sub">${fmtDate(p.fechaIngreso)} · ${esc(p.material || "")} · ${p.cantidad || 1} pza.</span>
+          <span class="prenda-item-sub">${fmtDate(p.fechaIngreso)} · ${esc(p.material || "")} · ${p.cantidad} pza.</span>
           <span>${badgeHtml(p.Estado)}</span>
         </div>
         <span class="prenda-item-id">${esc(p.Folio || "")}</span>
       </div>
     `).join("");
   } catch (err) {
-    console.error(err);
     list.innerHTML = '<p class="empty-msg">Error al cargar prendas.</p>';
   }
 }
 
 async function buscarPedido() {
-  const FolioIngresado = val("tracking-input").trim().toUpperCase();
+  const folio = val("tracking-input").trim().toUpperCase();
 
-  if (!FolioIngresado) {
+  if (!folio) {
     toast("Ingresa un ID de seguimiento.", "error");
     return;
   }
@@ -380,10 +359,10 @@ async function buscarPedido() {
   empty.style.display = "none";
 
   try {
-    const data = await apiFetch(`/api/orders/track/${encodeURIComponent(FolioIngresado)}`);
+    const data = await api(`/api/orders/track/${encodeURIComponent(folio)}`);
     const p = data.order;
 
-    document.getElementById("tr-id").textContent = p.Folio || FolioIngresado;
+    document.getElementById("tr-id").textContent = p.Folio || folio;
     document.getElementById("tr-prenda").textContent = p.tipoPrenda || "—";
     document.getElementById("tr-cliente").textContent = p.cliente || "—";
     document.getElementById("tr-entrega").textContent = fmtDate(p.FechaEntrega);
@@ -392,65 +371,51 @@ async function buscarPedido() {
     result.classList.remove("hidden");
   } catch (err) {
     empty.style.display = "block";
-    empty.textContent = err.message || `No se encontró ningún pedido con ID ${FolioIngresado}.`;
+    empty.textContent = `No se encontró ningún pedido con ID ${folio}.`;
   }
 }
 
 async function loadCuenta() {
   if (!G.user) return;
+  document.getElementById("cuenta-name").textContent = G.user.nombreCompleto || G.user.email;
+  document.getElementById("cuenta-email").textContent = G.user.email;
+}
 
+/* =========================================================
+   ADMIN
+========================================================= */
+function showAdmin() {
+  document.querySelectorAll(".screen").forEach(s => {
+    s.classList.remove("active");
+    s.style.display = "";
+  });
+
+  const adminScreen = document.getElementById("screen-admin");
+  adminScreen.style.display = "flex";
+  adminScreen.classList.add("active");
+
+  document.getElementById("adm-user-pill").textContent = (G.user?.email || "Admin").split("@")[0];
+}
+
+async function loadAdminData() {
   try {
-    const data = await apiFetch("/api/me/profile");
-    const d = data.profile || {};
+    const [ordersData, clientsData] = await Promise.all([
+      api("/api/admin/orders", "GET", null, true),
+      api("/api/admin/clients", "GET", null, true)
+    ]);
 
-    const nombre = `${d.nombre || ""} ${d.apellido || ""}`.trim();
-    document.getElementById("cuenta-name").textContent = nombre || G.user.displayName || G.user.email;
-    document.getElementById("cuenta-email").textContent = d.email || G.user.email;
+    G.orders = ordersData.orders || [];
+    G.filtered = [...G.orders];
+
+    updateMetrics();
+    renderDashRecent();
+    applyFilters();
+    renderClientes(clientsData.clients || []);
   } catch (err) {
-    document.getElementById("cuenta-name").textContent = G.user.displayName || G.user.email;
-    document.getElementById("cuenta-email").textContent = G.user.email;
+    toast(err.message, "error");
   }
 }
 
-/* ══════════════════════════════════════════════
-   ADMIN DATA
-══════════════════════════════════════════════ */
-async function reloadAdminData() {
-  await Promise.all([
-    loadAdminOrders(),
-    loadAdminClients()
-  ]);
-
-  updateMetrics();
-  renderDashRecent();
-  applyFilters();
-  renderClientes();
-}
-
-async function loadAdminOrders() {
-  try {
-    const data = await apiFetch("/api/admin/orders");
-    G.orders = data.orders || [];
-  } catch (err) {
-    console.error(err);
-    G.orders = [];
-    toast(err.message || "Error al cargar pedidos.", "error");
-  }
-}
-
-async function loadAdminClients() {
-  try {
-    const data = await apiFetch("/api/admin/clients");
-    G.clients = data.clients || [];
-  } catch (err) {
-    console.error(err);
-    G.clients = [];
-  }
-}
-
-/* ══════════════════════════════════════════════
-   ADMIN NAV
-══════════════════════════════════════════════ */
 function admNav(btn) {
   const targetId = btn.dataset.view;
 
@@ -476,9 +441,6 @@ function admNavById(viewId) {
   if (btn) admNav(btn);
 }
 
-/* ══════════════════════════════════════════════
-   ADMIN DASHBOARD
-══════════════════════════════════════════════ */
 function updateMetrics() {
   const cnt = { pendiente: 0, en_proceso: 0, planchado: 0, listo: 0, entregado: 0 };
 
@@ -505,8 +467,8 @@ function renderDashRecent() {
   tbody.innerHTML = list.map(o => `
     <tr>
       <td><strong>${esc(o.Folio || "—")}</strong></td>
-      <td>${esc(o.cliente || "—")}</td>
-      <td>${esc(o.tipoPrenda || "—")}</td>
+      <td>${esc(o.cliente)}</td>
+      <td>${esc(o.tipoPrenda)}</td>
       <td>${fmtDate(o.fechaIngreso)}</td>
       <td>${badgeHtml(o.Estado)}</td>
       <td>
@@ -518,9 +480,6 @@ function renderDashRecent() {
   `).join("");
 }
 
-/* ══════════════════════════════════════════════
-   ADMIN PEDIDOS + FILTROS
-══════════════════════════════════════════════ */
 function applyFilters() {
   const search = (document.getElementById("adm-search")?.value || "").toLowerCase();
   const status = document.getElementById("adm-filter-st")?.value || "";
@@ -531,8 +490,8 @@ function applyFilters() {
       (o.tipoPrenda || "").toLowerCase().includes(search) ||
       (o.Folio || "").toLowerCase().includes(search);
 
-    const matchSt = !status || o.Estado === status;
-    return matchText && matchSt;
+    const matchStatus = !status || o.Estado === status;
+    return matchText && matchStatus;
   });
 
   renderPedidosTable();
@@ -549,8 +508,8 @@ function renderPedidosTable() {
   tbody.innerHTML = G.filtered.map(o => `
     <tr>
       <td><strong>${esc(o.Folio || "—")}</strong></td>
-      <td>${esc(o.cliente || "—")}</td>
-      <td>${esc(o.tipoPrenda || "—")}</td>
+      <td>${esc(o.cliente)}</td>
+      <td>${esc(o.tipoPrenda)}</td>
       <td>${esc(o.material || "—")}</td>
       <td style="text-align:center">${o.cantidad || 1}</td>
       <td>${fmtDate(o.fechaIngreso)}</td>
@@ -567,9 +526,6 @@ function renderPedidosTable() {
   `).join("");
 }
 
-/* ══════════════════════════════════════════════
-   ADMIN FORM
-══════════════════════════════════════════════ */
 function admOpenNew() {
   ["adm-f-cliente","adm-f-telefono","adm-f-prenda","adm-f-cantidad","adm-f-precio","adm-f-notas"].forEach(id => setVal(id, ""));
   setVal("adm-edit-id", "");
@@ -610,34 +566,34 @@ async function admSaveOrder() {
   const prenda = val("adm-f-prenda").trim();
   const cantidad = parseInt(val("adm-f-cantidad")) || 0;
   const ingreso = val("adm-f-ingreso");
-  const FechaEntrega = val("adm-f-entrega");
+  const fechaEntrega = val("adm-f-entrega");
 
   if (!cliente) {
     toast("El nombre del cliente es obligatorio.", "error");
     return;
   }
+
   if (!prenda) {
     toast("El nombre de la prenda es obligatorio.", "error");
     return;
   }
+
   if (cantidad < 1) {
     toast("La cantidad debe ser al menos 1.", "error");
     return;
   }
-  if (!ingreso) {
-    toast("La fecha de ingreso es obligatoria.", "error");
+
+  if (!ingreso || !fechaEntrega) {
+    toast("Debes completar las fechas.", "error");
     return;
   }
-  if (!FechaEntrega) {
-    toast("La fecha de entrega es obligatoria.", "error");
-    return;
-  }
-  if (FechaEntrega < ingreso) {
+
+  if (fechaEntrega < ingreso) {
     toast("La entrega no puede ser antes del ingreso.", "error");
     return;
   }
 
-  const data = {
+  const payload = {
     cliente,
     telefono: val("adm-f-telefono").trim(),
     tipoPrenda: prenda,
@@ -645,37 +601,28 @@ async function admSaveOrder() {
     cantidad,
     precio: parseFloat(val("adm-f-precio")) || null,
     fechaIngreso: ingreso,
-    FechaEntrega,
+    FechaEntrega: fechaEntrega,
     notas: val("adm-f-notas").trim()
   };
 
   try {
     if (editId) {
-      data.Estado = val("adm-f-estado");
-      await apiFetch(`/api/admin/orders/${editId}`, {
-        method: "PUT",
-        body: JSON.stringify(data)
-      });
+      payload.Estado = val("adm-f-estado");
+      await api(`/api/admin/orders/${editId}`, "PATCH", payload, true);
+      toast("Pedido actualizado.", "success");
     } else {
-      await apiFetch("/api/admin/orders", {
-        method: "POST",
-        body: JSON.stringify(data)
-      });
+      await api("/api/admin/orders", "POST", payload, true);
+      toast("Pedido registrado.", "success");
     }
 
-    toast("Pedido guardado. ✅", "success");
     admOpenNew();
-    await reloadAdminData();
     admNavById("adm-view-pedidos");
+    await loadAdminData();
   } catch (err) {
-    console.error(err);
-    toast(err.message || "Error al guardar el pedido.", "error");
+    toast(err.message, "error");
   }
 }
 
-/* ══════════════════════════════════════════════
-   ADMIN MODAL
-══════════════════════════════════════════════ */
 function openModal(id) {
   const o = G.orders.find(x => x.id === id);
   if (!o) return;
@@ -688,9 +635,9 @@ function openModal(id) {
       <div class="det-item"><span class="det-lbl">Estado</span><span class="det-val">${badgeHtml(o.Estado)}</span></div>
       <div class="det-item"><span class="det-lbl">Contador</span><span class="det-val">${o.Contador || "—"}</span></div>
       <div class="det-item"><span class="det-lbl">Validado</span><span class="det-val">${o.Validado ? "✅ Sí" : "⏳ No"}</span></div>
-      <div class="det-item"><span class="det-lbl">Cliente</span><span class="det-val">${esc(o.cliente || "—")}</span></div>
+      <div class="det-item"><span class="det-lbl">Cliente</span><span class="det-val">${esc(o.cliente)}</span></div>
       <div class="det-item"><span class="det-lbl">Teléfono</span><span class="det-val">${esc(o.telefono || "—")}</span></div>
-      <div class="det-item"><span class="det-lbl">Prenda</span><span class="det-val">${esc(o.tipoPrenda || "—")}</span></div>
+      <div class="det-item"><span class="det-lbl">Prenda</span><span class="det-val">${esc(o.tipoPrenda)}</span></div>
       <div class="det-item"><span class="det-lbl">Material</span><span class="det-val">${esc(o.material || "—")}</span></div>
       <div class="det-item"><span class="det-lbl">Cantidad</span><span class="det-val">${o.cantidad || 1} pza.</span></div>
       <div class="det-item"><span class="det-lbl">Precio</span><span class="det-val">${o.precio ? `$${parseFloat(o.precio).toFixed(2)} MXN` : "—"}</span></div>
@@ -715,17 +662,15 @@ async function admUpdateStatus() {
   const newEstado = document.getElementById("modal-st-sel").value;
 
   try {
-    await apiFetch(`/api/admin/orders/${G.currentId}`, {
-      method: "PUT",
-      body: JSON.stringify({ Estado: newEstado })
-    });
+    await api(`/api/admin/orders/${G.currentId}`, "PATCH", {
+      Estado: newEstado
+    }, true);
 
-    toast("Estado actualizado. ✅", "success");
+    toast("Estado actualizado.", "success");
     closeModal();
-    await reloadAdminData();
+    await loadAdminData();
   } catch (err) {
-    console.error(err);
-    toast(err.message || "Error al actualizar.", "error");
+    toast(err.message, "error");
   }
 }
 
@@ -747,45 +692,38 @@ async function executeDelete() {
   if (!G.delId) return;
 
   try {
-    await apiFetch(`/api/admin/orders/${G.delId}`, {
-      method: "DELETE"
-    });
-
+    await api(`/api/admin/orders/${G.delId}`, "DELETE", null, true);
     toast("Pedido eliminado.", "info");
     closeConfirm();
     closeModal();
-    await reloadAdminData();
+    await loadAdminData();
   } catch (err) {
-    console.error(err);
-    toast(err.message || "Error al eliminar.", "error");
+    toast(err.message, "error");
   }
 }
 
-/* ══════════════════════════════════════════════
-   CLIENTES ADMIN
-══════════════════════════════════════════════ */
-function renderClientes() {
+function renderClientes(clients) {
   const tbody = document.getElementById("clientes-tbody");
   if (!tbody) return;
 
-  if (!G.clients.length) {
+  if (!clients.length) {
     tbody.innerHTML = '<tr><td colspan="4" class="t-empty">No hay clientes registrados.</td></tr>';
     return;
   }
 
-  tbody.innerHTML = G.clients.map(c => `
+  tbody.innerHTML = clients.map(c => `
     <tr>
-      <td>${esc(c.nombreCompleto || c.email || "—")}</td>
+      <td>${esc(c.nombreCompleto || c.email)}</td>
       <td>${esc(c.email || "—")}</td>
       <td>${esc(c.telefono || "—")}</td>
-      <td style="text-align:center">${c.pedidos || 0}</td>
+      <td style="text-align:center">${c.totalPedidos || 0}</td>
     </tr>
   `).join("");
 }
 
-/* ══════════════════════════════════════════════
+/* =========================================================
    SIDEBAR ADMIN
-══════════════════════════════════════════════ */
+========================================================= */
 function toggleSidebar() {
   const s = document.getElementById("adm-sidebar");
   const ov = document.getElementById("sidebar-overlay");
@@ -798,16 +736,16 @@ function closeSidebar() {
   document.getElementById("sidebar-overlay")?.classList.add("hidden");
 }
 
-/* ══════════════════════════════════════════════
+/* =========================================================
    HELPERS
-══════════════════════════════════════════════ */
+========================================================= */
 function badgeHtml(Estado) {
   const map = {
-    pendiente: ["b-pendiente", "⏳ Pendiente"],
+    pendiente:  ["b-pendiente", "⏳ Pendiente"],
     en_proceso: ["b-en_proceso", "🔄 En proceso"],
-    planchado: ["b-planchado", "👔 Planchado"],
-    listo: ["b-listo", "✅ Listo"],
-    entregado: ["b-entregado", "🏠 Entregado"]
+    planchado:  ["b-planchado", "👔 Planchado"],
+    listo:      ["b-listo", "✅ Listo"],
+    entregado:  ["b-entregado", "🏠 Entregado"]
   };
   const [cls, label] = map[Estado] || ["b-pendiente", Estado || "—"];
   return `<span class="badge ${cls}">${label}</span>`;
@@ -824,16 +762,11 @@ function estadoLabel(Estado) {
   return labels[Estado] || Estado || "—";
 }
 
-function fmtDate(value) {
-  if (!value) return "—";
-
-  const iso = String(value).includes("T") ? String(value).split("T")[0] : String(value);
-  const parts = iso.split("-");
-  if (parts.length !== 3) return String(value);
-
-  const [y, m, d] = parts;
+function fmtDate(iso) {
+  if (!iso) return "—";
+  const [y, m, d] = String(iso).split("-");
   const meses = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
-  return `${parseInt(d)} ${meses[parseInt(m)-1]} ${y}`;
+  return `${parseInt(d)} ${meses[parseInt(m) - 1]} ${y}`;
 }
 
 function today() {
@@ -853,9 +786,9 @@ function val(id) {
   return el ? el.value : "";
 }
 
-function setVal(id, v) {
+function setVal(id, value) {
   const el = document.getElementById(id);
-  if (el) el.value = v;
+  if (el) el.value = value;
 }
 
 function togglePass(inputId, btn) {
@@ -871,40 +804,12 @@ function togglePass(inputId, btn) {
   }
 }
 
-function authError(err) {
-  const m = {
-    "auth/user-not-found": "Correo no registrado.",
-    "auth/wrong-password": "Contraseña incorrecta.",
-    "auth/invalid-email": "Correo inválido.",
-    "auth/email-already-in-use": "Este correo ya está registrado.",
-    "auth/weak-password": "Contraseña muy débil (mínimo 6 caracteres).",
-    "auth/too-many-requests": "Demasiados intentos. Intenta más tarde.",
-    "auth/invalid-credential": "Credenciales incorrectas."
-  };
-  return m[err.code] || `Error: ${err.message}`;
-}
-
 function toast(msg, type = "info") {
   const icons = { success: "✅", error: "❌", info: "ℹ️" };
-  const c = document.getElementById("toast-container");
+  const container = document.getElementById("toast-container");
   const el = document.createElement("div");
   el.className = `toast ${type}`;
   el.innerHTML = `<span>${icons[type]}</span><span>${esc(msg)}</span>`;
-  c.appendChild(el);
+  container.appendChild(el);
   setTimeout(() => el.remove(), 4300);
 }
-
-document.addEventListener("keydown", e => {
-  if (e.key === "Escape") {
-    closeModal();
-    closeConfirm();
-  }
-});
-
-document.getElementById("modal-overlay")?.addEventListener("click", e => {
-  if (e.target === document.getElementById("modal-overlay")) closeModal();
-});
-
-document.getElementById("confirm-overlay")?.addEventListener("click", e => {
-  if (e.target === document.getElementById("confirm-overlay")) closeConfirm();
-});

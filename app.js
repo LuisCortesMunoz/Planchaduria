@@ -1,144 +1,135 @@
-/* ══════════════════════════════════════════════════════════════
-   Planchado Express — app.js
-   ─────────────────────────────────────────────────────────────
-   SECCIONES:
-     1.  Configuración Firebase
-     2.  Estado global
-     3.  Inicialización
-     4.  Navegación de pantallas
-     5.  Auth — Cliente
-     6.  Auth — Administrador
-     7.  Suscripción en tiempo real (Firestore)
-     8.  CRUD Pedidos
-     9.  Flujo: Nueva Prenda (cliente)
-    10.  Pantallas cliente: Mis Prendas, Estado, Cuenta
-    11.  Panel Admin: Dashboard
-    12.  Panel Admin: Lista de Pedidos + Filtros
-    13.  Panel Admin: Formulario (crear / editar)
-    14.  Panel Admin: Modal de detalle
-    15.  Panel Admin: Clientes
-    16.  Helpers: badges, fechas, IDs, toast, etc.
+/* =========================================================
+   Planchado Express — app.js (Backend API mode)
+========================================================= */
 
-   VARIABLES HOMOLOGADAS:
-     Folio          → String   — ID de seguimiento del pedido
-     Contador       → Number   — Número secuencial interno
-     FechaCreacion  → Timestamp — Fecha de creación (serverTimestamp)
-     Estado         → String   — Estado del pedido
-     FolioIngresado → String   — Folio capturado por el admin / cliente
-     Validado       → Boolean  — Si el pedido fue revisado/validado
-     FechaEntrega   → Timestamp (ISO string) — Fecha estimada de entrega
-══════════════════════════════════════════════════════════════ */
+const API = "https://docker-planchaduria.onrender.com";
+const ADMIN_EMAILS = ["admin@planchadoexpress.com"]; // ajusta si quieres
 
-/* ══════════════════════════════════════════════
-   1. CONFIGURACIÓN FIREBASE
-   ✅  Usando Firebase Compat SDK (cargado en index.html)
-   ⚠️  IMPORTANTE!!! usar import/export aquí — incompatible con compat SDK
-══════════════════════════════════════════════ */
-const firebaseConfig = {
-  apiKey:            "AIzaSyBVR2rFkIiBDPigHiqU82cV-iMyZvXza98",
-  authDomain:        "db-planchaduria.firebaseapp.com",
-  databaseURL:       "https://db-planchaduria-default-rtdb.firebaseio.com",
-  projectId:         "db-planchaduria",
-  storageBucket:     "db-planchaduria.firebasestorage.app",
-  messagingSenderId: "88489323952",
-  appId:             "1:88489323952:web:7df0eb2d438d62430f3a75",
-  measurementId:     "G-D16JVMYYRM"
-};
-
-// Colecciones Firestore
-const COL_PEDIDOS  = "pedidos";
-const COL_USUARIOS = "usuarios";
-
-// UID del administrador 
-// Es el del admin supremo que cree manual en la base de datos va?
-const ADMIN_UID = "HrGtBnzEtBXLK19YpeI8wTAaSM42";
-
-/* ══════════════════════════════════════════════
-   2. ESTADO GLOBAL
-══════════════════════════════════════════════ */
 const G = {
-  db:        null,
-  auth:      null,
-  user:      null,      // usuario actual autenticado
-  isAdmin:   false,     // true solo si user.uid === ADMIN_UID
-  orders:    [],        // todos los pedidos (admin)
-  filtered:  [],        // pedidos filtrados
-  unsub:     null,      // unsubscribe del listener
-  currentId: null,      // pedido en modal/edición
-  delId:     null,      // pedido pendiente de borrar
-  material:  "",        // material seleccionado en nueva prenda
+  user: null,
+  isAdmin: false,
+  orders: [],
+  filtered: [],
+  currentId: null,
+  delId: null,
+  material: "",
 };
 
-/* ══════════════════════════════════════════════
-   3. INICIALIZACIÓN
-   ✅  Firebase Compat SDK — se inicializa con firebase.initializeApp()
-══════════════════════════════════════════════ */
-document.addEventListener("DOMContentLoaded", () => {
+/* =========================================================
+   INIT
+========================================================= */
+document.addEventListener("DOMContentLoaded", async () => {
   try {
-    firebase.initializeApp(firebaseConfig);
-    G.db   = firebase.firestore();
-    G.auth = firebase.auth();
-    console.log("✅ Firebase conectado.");
+    await checkSession();
   } catch (err) {
-    console.error("Firebase init error:", err);
-    toast("Error al conectar con Firebase. Revisa la configuración.", "error");
+    console.error(err);
+    goTo("screen-splash");
   }
-
-  // Escuchar cambios de autenticación
-  G.auth.onAuthStateChanged(user => {
-    if (user) {
-      G.user    = user;
-      G.isAdmin = (user.uid === ADMIN_UID);
-
-      if (G.isAdmin) {
-        document.getElementById("adm-user-pill").textContent = user.email.split("@")[0];
-        showAdmin();
-        subscribeOrders();
-      } else {
-        goTo("screen-menu-client");
-        loadCuenta();
-      }
-    } else {
-      G.user    = null;
-      G.isAdmin = false;
-      if (G.unsub) { G.unsub(); G.unsub = null; }
-      goTo("screen-splash");
-    }
-  });
 });
 
-/* ══════════════════════════════════════════════
-   4. NAVEGACIÓN ENTRE PANTALLAS (cliente)
-══════════════════════════════════════════════ */
+/* =========================================================
+   HELPERS API
+========================================================= */
+async function api(path, options = {}) {
+  const res = await fetch(`${API}${path}`, {
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    },
+    ...options
+  });
+
+  let data = {};
+  try { data = await res.json(); } catch {}
+
+  if (!res.ok) {
+    throw new Error(data.message || `HTTP ${res.status}`);
+  }
+
+  return data;
+}
+
+async function apiForm(path, formData) {
+  const res = await fetch(`${API}${path}`, {
+    method: "POST",
+    credentials: "include",
+    body: formData
+  });
+
+  let data = {};
+  try { data = await res.json(); } catch {}
+
+  if (!res.ok) {
+    throw new Error(data.message || `HTTP ${res.status}`);
+  }
+
+  return data;
+}
+
+/* =========================================================
+   NAVEGACIÓN
+========================================================= */
 function goTo(screenId) {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   const target = document.getElementById(screenId);
   if (target) target.classList.add("active");
 }
 
-/* ══════════════════════════════════════════════
-   5. AUTH — CLIENTE
-══════════════════════════════════════════════ */
+/* =========================================================
+   AUTH
+========================================================= */
+async function checkSession() {
+  try {
+    const me = await api("/auth/me");
+    G.user = me.user;
+    G.isAdmin = !!me.user?.isAdmin;
 
-// Login cliente con email + contraseña
+    if (G.isAdmin) {
+      document.getElementById("adm-user-pill").textContent = (G.user.email || "admin").split("@")[0];
+      showAdmin();
+      await subscribeOrders();
+    } else if (G.user) {
+      goTo("screen-menu-client");
+      await loadCuenta();
+    } else {
+      goTo("screen-splash");
+    }
+  } catch {
+    G.user = null;
+    G.isAdmin = false;
+    goTo("screen-splash");
+  }
+}
+
 async function loginClient() {
   const email = val("cl-email");
   const pass  = val("cl-pass");
   if (!email || !pass) { toast("Completa todos los campos.", "error"); return; }
+
   try {
-    const cred = await G.auth.signInWithEmailAndPassword(email, pass);
-    if (cred.user.uid === ADMIN_UID) {
-      await G.auth.signOut();
+    const data = await api("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password: pass })
+    });
+
+    G.user = data.user;
+    G.isAdmin = !!data.user?.isAdmin;
+
+    if (G.isAdmin) {
       toast("Usa el acceso de administrador.", "error");
+      await clientLogout();
       return;
     }
+
     toast("¡Bienvenido de nuevo!", "success");
+    goTo("screen-menu-client");
+    await loadCuenta();
   } catch (err) {
-    toast(authError(err), "error");
+    toast(err.message, "error");
   }
 }
 
-// Registro de nuevo cliente
 async function registerClient() {
   const nombre   = val("reg-nombre");
   const apellido = val("reg-apellido");
@@ -146,149 +137,141 @@ async function registerClient() {
   const phone    = val("reg-phone");
   const pass     = val("reg-pass");
 
-  if (!nombre || !apellido || !email || !pass) { toast("Completa todos los campos obligatorios.", "error"); return; }
-  if (pass.length < 6) { toast("La contraseña debe tener al menos 6 caracteres.", "error"); return; }
+  if (!nombre || !apellido || !email || !pass) {
+    toast("Completa todos los campos obligatorios.", "error");
+    return;
+  }
+  if (pass.length < 6) {
+    toast("La contraseña debe tener al menos 6 caracteres.", "error");
+    return;
+  }
 
   try {
-    const cred = await G.auth.createUserWithEmailAndPassword(email, pass);
-    await G.db.collection(COL_USUARIOS).doc(cred.user.uid).set({
-      nombre, apellido, email, telefono: phone,
-      FechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
+    const data = await api("/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ nombre, apellido, email, telefono: phone, password: pass })
     });
+
+    G.user = data.user;
+    G.isAdmin = !!data.user?.isAdmin;
     toast("¡Cuenta creada! Bienvenido.", "success");
+    goTo("screen-menu-client");
+    await loadCuenta();
   } catch (err) {
-    toast(authError(err), "error");
+    toast(err.message, "error");
   }
 }
 
-// Cerrar sesión cliente
 async function clientLogout() {
-  await G.auth.signOut();
+  await api("/auth/logout", { method: "POST" });
+  G.user = null;
+  G.isAdmin = false;
+  goTo("screen-splash");
   toast("Sesión cerrada.", "info");
 }
-
-/* ══════════════════════════════════════════════
-   6. AUTH — ADMINISTRADOR
-══════════════════════════════════════════════ */
 
 async function loginAdmin() {
   const email = val("adm-email");
   const pass  = val("adm-pass");
   if (!email || !pass) { toast("Completa el correo y contraseña.", "error"); return; }
+
   try {
-    const cred = await G.auth.signInWithEmailAndPassword(email, pass);
-    if (cred.user.uid !== ADMIN_UID) {
-      await G.auth.signOut();
+    const data = await api("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password: pass })
+    });
+
+    G.user = data.user;
+    G.isAdmin = !!data.user?.isAdmin;
+
+    if (!G.isAdmin) {
+      await clientLogout();
       toast("Acceso denegado. No tienes permisos de administrador.", "error");
       return;
     }
+
+    document.getElementById("adm-user-pill").textContent = email.split("@")[0];
     toast("¡Bienvenido al panel!", "success");
+    showAdmin();
+    await subscribeOrders();
   } catch (err) {
-    toast(authError(err), "error");
+    toast(err.message, "error");
   }
 }
 
 async function adminLogout() {
-  await G.auth.signOut();
+  await api("/auth/logout", { method: "POST" });
+  G.user = null;
+  G.isAdmin = false;
   closeSidebar();
+  goTo("screen-splash");
   toast("Sesión cerrada.", "info");
 }
 
-/* ══════════════════════════════════════════════
-   7. SUSCRIPCIÓN EN TIEMPO REAL (Firestore)
-   📌  Ordenamos por FechaCreacion (campo homologado)
-══════════════════════════════════════════════ */
-function subscribeOrders() {
-  if (G.unsub) G.unsub();
-
-  G.unsub = G.db.collection(COL_PEDIDOS)
-    .orderBy("FechaCreacion", "desc")
-    .onSnapshot(snap => {
-      G.orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      applyFilters();
-      updateMetrics();
-      renderDashRecent();
-      renderClientes();
-    }, err => {
-      console.error("Listener error:", err);
-      toast("Error al cargar pedidos en tiempo real.", "error");
-    });
+/* =========================================================
+   PEDIDOS
+========================================================= */
+async function subscribeOrders() {
+  const data = await api("/orders");
+  G.orders = data.orders || [];
+  applyFilters();
+  updateMetrics();
+  renderDashRecent();
+  renderClientes();
 }
 
-/* ══════════════════════════════════════════════
-   8. CRUD PEDIDOS
-   📌  Variables homologadas:
-       Folio          → String  (ej. "#00001")
-       Contador       → Number  (número secuencial)
-       FechaCreacion  → Timestamp
-       Estado         → String
-       FolioIngresado → String  (folio capturado manualmente)
-       Validado       → Boolean
-       FechaEntrega   → String ISO (ej. "2026-04-15")
-══════════════════════════════════════════════ */
-
-// Genera Folio tipo "#00001" y obtiene el Contador siguiente
 async function generarFolio() {
-  const snap    = await G.db.collection(COL_PEDIDOS).get();
-  const Contador = snap.size + 1;
-  const Folio   = "#" + String(Contador).padStart(5, "0");
-  return { Folio, Contador };
+  const data = await api("/orders/next-folio");
+  return { Folio: data.Folio, Contador: data.Contador };
 }
 
-// Crear pedido
-async function addPedido(data) {
+async function addPedido(payload) {
   try {
-    const { Folio, Contador } = await generarFolio();
-    await G.db.collection(COL_PEDIDOS).add({
-      ...data,
-      Folio,
-      Contador,
-      Estado:         "pendiente",
-      FolioIngresado: Folio,        // folio asignado al ingresar
-      Validado:       false,        // pendiente de validación
-      FechaCreacion:  firebase.firestore.FieldValue.serverTimestamp()
+    const data = await api("/orders", {
+      method: "POST",
+      body: JSON.stringify(payload)
     });
-    toast(`Pedido ${Folio} registrado. ✅`, "success");
-    return true;
+    toast(`Pedido ${data.order.Folio} registrado. ✅`, "success");
+    return data.order;
   } catch (err) {
-    console.error("addPedido:", err);
+    console.error(err);
     toast("Error al guardar el pedido.", "error");
-    return false;
+    return null;
   }
 }
 
-// Actualizar pedido
-async function updatePedido(id, data) {
+async function updatePedido(id, payload) {
   try {
-    await G.db.collection(COL_PEDIDOS).doc(id).update({
-      ...data,
-      actualizadoEn: firebase.firestore.FieldValue.serverTimestamp()
+    await api(`/orders/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
     });
     toast("Pedido actualizado. ✅", "success");
+    await subscribeOrders();
     return true;
   } catch (err) {
-    console.error("updatePedido:", err);
+    console.error(err);
     toast("Error al actualizar.", "error");
     return false;
   }
 }
 
-// Eliminar pedido
 async function deletePedido(id) {
   try {
-    await G.db.collection(COL_PEDIDOS).doc(id).delete();
+    await api(`/orders/${id}`, { method: "DELETE" });
     toast("Pedido eliminado.", "info");
+    await subscribeOrders();
     return true;
   } catch (err) {
-    console.error("deletePedido:", err);
+    console.error(err);
     toast("Error al eliminar.", "error");
     return false;
   }
 }
 
-/* ══════════════════════════════════════════════
-   9. FLUJO NUEVA PRENDA (cliente)
-══════════════════════════════════════════════ */
+/* =========================================================
+   NUEVA PRENDA
+========================================================= */
 function resetNuevaPrenda() {
   G.material = "";
   setVal("np-nombre", "");
@@ -313,9 +296,10 @@ function selectMaterial(btn) {
 function npContinuar() {
   const nombre   = val("np-nombre");
   const cantidad = parseInt(val("np-cantidad")) || 0;
-  if (!nombre)       { toast("Escribe el nombre de la prenda.", "error"); return; }
-  if (cantidad < 1)  { toast("La cantidad debe ser al menos 1.", "error"); return; }
-  if (!G.material)   { toast("Selecciona el material.", "error"); return; }
+  if (!nombre)      { toast("Escribe el nombre de la prenda.", "error"); return; }
+  if (cantidad < 1) { toast("La cantidad debe ser al menos 1.", "error"); return; }
+  if (!G.material)  { toast("Selecciona el material.", "error"); return; }
+
   showStep(2);
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -326,11 +310,12 @@ function npVolver() { showStep(1); }
 
 async function npFinalizar() {
   if (!G.user) { toast("Debes iniciar sesión.", "error"); return; }
+
   const FechaEntrega = val("np-entrega");
   if (!FechaEntrega) { toast("Selecciona la fecha de entrega.", "error"); return; }
 
-  const data = {
-    cliente:       G.user.displayName || G.user.email,
+  const payload = {
+    cliente:       G.user.nombreCompleto || G.user.email,
     clienteUid:    G.user.uid,
     tipoPrenda:    val("np-nombre"),
     material:      G.material,
@@ -338,57 +323,88 @@ async function npFinalizar() {
     fechaIngreso:  today(),
     FechaEntrega,
     notas:         val("np-instrucciones"),
-    telefono:      "",
+    telefono:      G.user.telefono || "",
     precio:        null,
     origenCliente: true
   };
 
-  const ok = await addPedido(data);
-  if (ok) {
-    toast("Tu prenda fue registrada con éxito.", "success");
+  const order = await addPedido(payload);
+  if (!order) return;
+
+  try {
+    await api("/process/start", {
+      method: "POST",
+      body: JSON.stringify({
+        orderId: order.id,
+        folio: order.Folio,
+        cantidad: order.cantidad,
+        clienteUid: order.clienteUid
+      })
+    });
+
+    toast("Pedido registrado e iniciado correctamente.", "success");
     goTo("screen-menu-client");
     resetNuevaPrenda();
+  } catch (err) {
+    toast(`Pedido guardado, pero no se pudo iniciar el proceso: ${err.message}`, "error");
   }
 }
 
-/* ══════════════════════════════════════════════
-   10. PANTALLAS CLIENTE
-══════════════════════════════════════════════ */
-
-// Mis prendas — carga pedidos del cliente actual
+/* =========================================================
+   CLIENTE
+========================================================= */
 async function loadMisPrendas() {
   if (!G.user) return;
+
   const list = document.getElementById("mis-prendas-list");
   list.innerHTML = '<p class="empty-msg">Cargando…</p>';
 
   try {
-    const snap = await G.db.collection(COL_PEDIDOS)
-      .where("clienteUid", "==", G.user.uid)
-      .orderBy("FechaCreacion", "desc")
-      .get();
+    const data = await api("/orders?mine=1");
+    const orders = data.orders || [];
 
-    if (snap.empty) {
+    if (!orders.length) {
       list.innerHTML = '<p class="empty-msg">No tienes prendas registradas aún.</p>';
       return;
     }
-    list.innerHTML = snap.docs.map(d => {
-      const p = { id: d.id, ...d.data() };
+
+    const html = await Promise.all(orders.map(async (p) => {
+      let photosHtml = "";
+      try {
+        const photosData = await api(`/orders/${p.id}/photos`);
+        const photos = photosData.photos || [];
+        if (photos.length) {
+          photosHtml = `
+            <div class="historial-photos">
+              ${photos.map(ph => `
+                <div class="historial-photo-card">
+                  <img src="${esc(ph.url)}" alt="${esc(ph.file_name)}">
+                  <div class="historial-photo-meta">${esc(ph.file_name.replace(".jpg",""))}</div>
+                </div>
+              `).join("")}
+            </div>
+          `;
+        }
+      } catch {}
+
       return `
-        <div class="prenda-item">
+        <div class="prenda-item" style="display:block">
           <div class="prenda-item-info">
             <span class="prenda-item-name">${esc(p.tipoPrenda)}</span>
             <span class="prenda-item-sub">${fmtDate(p.fechaIngreso)} · ${p.material || ""} · ${p.cantidad} pza.</span>
             <span>${badgeHtml(p.Estado)}</span>
+            <span class="prenda-item-id">${esc(p.Folio || "")}</span>
           </div>
-          <span class="prenda-item-id">${esc(p.Folio || "")}</span>
+          ${photosHtml}
         </div>`;
-    }).join("");
+    }));
+
+    list.innerHTML = html.join("");
   } catch (err) {
     list.innerHTML = '<p class="empty-msg">Error al cargar prendas.</p>';
   }
 }
 
-// Estado de prenda — buscar por Folio
 async function buscarPedido() {
   const FolioIngresado = val("tracking-input").trim().toUpperCase();
   if (!FolioIngresado) { toast("Ingresa un ID de seguimiento.", "error"); return; }
@@ -399,17 +415,9 @@ async function buscarPedido() {
   empty.style.display = "none";
 
   try {
-    // Buscar por Folio o FolioIngresado
-    const snap = await G.db.collection(COL_PEDIDOS)
-      .where("Folio", "==", FolioIngresado)
-      .get();
+    const data = await api(`/orders/by-folio/${encodeURIComponent(FolioIngresado)}`);
+    const p = data.order;
 
-    if (snap.empty) {
-      empty.style.display = "block";
-      empty.textContent = `No se encontró ningún pedido con ID ${FolioIngresado}.`;
-      return;
-    }
-    const p = { id: snap.docs[0].id, ...snap.docs[0].data() };
     document.getElementById("tr-id").textContent      = p.Folio || FolioIngresado;
     document.getElementById("tr-prenda").textContent  = p.tipoPrenda  || "—";
     document.getElementById("tr-cliente").textContent = p.cliente     || "—";
@@ -417,31 +425,20 @@ async function buscarPedido() {
     document.getElementById("tr-estado").textContent  = estadoLabel(p.Estado);
     result.classList.remove("hidden");
   } catch (err) {
-    console.error(err);
-    toast("Error al buscar el pedido.", "error");
+    empty.style.display = "block";
+    empty.textContent = `No se encontró ningún pedido con ID ${FolioIngresado}.`;
   }
 }
 
-// Cuenta cliente
 async function loadCuenta() {
   if (!G.user) return;
-  try {
-    const doc = await G.db.collection(COL_USUARIOS).doc(G.user.uid).get();
-    if (doc.exists) {
-      const d = doc.data();
-      const nombre = `${d.nombre || ""} ${d.apellido || ""}`.trim();
-      document.getElementById("cuenta-name").textContent  = nombre || G.user.email;
-      document.getElementById("cuenta-email").textContent = G.user.email;
-    } else {
-      document.getElementById("cuenta-name").textContent  = G.user.email;
-      document.getElementById("cuenta-email").textContent = G.user.email;
-    }
-  } catch (err) { /* silencioso */ }
+  document.getElementById("cuenta-name").textContent  = G.user.nombreCompleto || G.user.email;
+  document.getElementById("cuenta-email").textContent = G.user.email;
 }
 
-/* ══════════════════════════════════════════════
-   11. PANEL ADMIN — MOSTRAR / NAVEGAR
-══════════════════════════════════════════════ */
+/* =========================================================
+   ADMIN
+========================================================= */
 function showAdmin() {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   const adminScreen = document.getElementById("screen-admin");
@@ -472,9 +469,6 @@ function admNavById(viewId) {
   if (btn) admNav(btn);
 }
 
-/* ══════════════════════════════════════════════
-   12. PANEL ADMIN — DASHBOARD
-══════════════════════════════════════════════ */
 function updateMetrics() {
   const cnt = { pendiente:0, en_proceso:0, planchado:0, listo:0, entregado:0 };
   G.orders.forEach(o => { if (cnt[o.Estado] !== undefined) cnt[o.Estado]++; });
@@ -500,26 +494,19 @@ function renderDashRecent() {
       <td>${esc(o.tipoPrenda)}</td>
       <td>${fmtDate(o.fechaIngreso)}</td>
       <td>${badgeHtml(o.Estado)}</td>
-      <td>
-        <div class="tbl-actions">
-          <button class="tbl-btn" onclick="openModal('${o.id}')">👁</button>
-        </div>
-      </td>
+      <td><div class="tbl-actions"><button class="tbl-btn" onclick="openModal('${o.id}')">👁</button></div></td>
     </tr>`).join("");
 }
 
-/* ══════════════════════════════════════════════
-   13. PANEL ADMIN — LISTA DE PEDIDOS + FILTROS
-══════════════════════════════════════════════ */
 function applyFilters() {
   const search = (document.getElementById("adm-search")?.value || "").toLowerCase();
   const status = document.getElementById("adm-filter-st")?.value || "";
 
   G.filtered = G.orders.filter(o => {
     const matchText = !search ||
-      (o.cliente    || "").toLowerCase().includes(search) ||
+      (o.cliente || "").toLowerCase().includes(search) ||
       (o.tipoPrenda || "").toLowerCase().includes(search) ||
-      (o.Folio      || "").toLowerCase().includes(search);
+      (o.Folio || "").toLowerCase().includes(search);
     const matchSt = !status || o.Estado === status;
     return matchText && matchSt;
   });
@@ -553,9 +540,6 @@ function renderPedidosTable() {
     </tr>`).join("");
 }
 
-/* ══════════════════════════════════════════════
-   14. PANEL ADMIN — FORMULARIO CREAR / EDITAR
-══════════════════════════════════════════════ */
 function admOpenNew() {
   ["adm-f-cliente","adm-f-telefono","adm-f-prenda","adm-f-cantidad","adm-f-precio","adm-f-notas"].forEach(id => setVal(id,""));
   setVal("adm-edit-id", "");
@@ -571,17 +555,17 @@ function admOpenEdit(id) {
   const o = G.orders.find(x => x.id === id);
   if (!o) return;
 
-  setVal("adm-edit-id",    id);
-  setVal("adm-f-cliente",  o.cliente    || "");
-  setVal("adm-f-telefono", o.telefono   || "");
-  setVal("adm-f-prenda",   o.tipoPrenda || "");
-  setVal("adm-f-material", o.material   || "");
-  setVal("adm-f-cantidad", o.cantidad   || 1);
-  setVal("adm-f-precio",   o.precio     || "");
-  setVal("adm-f-ingreso",  o.fechaIngreso  || "");
-  setVal("adm-f-entrega",  o.FechaEntrega  || "");
-  setVal("adm-f-notas",    o.notas      || "");
-  setVal("adm-f-estado",   o.Estado     || "pendiente");
+  setVal("adm-edit-id", id);
+  setVal("adm-f-cliente", o.cliente || "");
+  setVal("adm-f-telefono", o.telefono || "");
+  setVal("adm-f-prenda", o.tipoPrenda || "");
+  setVal("adm-f-material", o.material || "");
+  setVal("adm-f-cantidad", o.cantidad || 1);
+  setVal("adm-f-precio", o.precio || "");
+  setVal("adm-f-ingreso", o.fechaIngreso || "");
+  setVal("adm-f-entrega", o.FechaEntrega || "");
+  setVal("adm-f-notas", o.notas || "");
+  setVal("adm-f-estado", o.Estado || "pendiente");
   document.getElementById("adm-form-title").textContent = "Editar pedido";
   document.getElementById("adm-status-row").style.display = "block";
 
@@ -597,43 +581,42 @@ async function admSaveOrder() {
   const ingreso  = val("adm-f-ingreso");
   const FechaEntrega = val("adm-f-entrega");
 
-  if (!cliente)       { toast("El nombre del cliente es obligatorio.", "error"); return; }
-  if (!prenda)        { toast("El nombre de la prenda es obligatorio.", "error"); return; }
-  if (cantidad < 1)   { toast("La cantidad debe ser al menos 1.", "error"); return; }
-  if (!ingreso)       { toast("La fecha de ingreso es obligatoria.", "error"); return; }
-  if (!FechaEntrega)  { toast("La fecha de entrega es obligatoria.", "error"); return; }
+  if (!cliente)      { toast("El nombre del cliente es obligatorio.", "error"); return; }
+  if (!prenda)       { toast("El nombre de la prenda es obligatorio.", "error"); return; }
+  if (cantidad < 1)  { toast("La cantidad debe ser al menos 1.", "error"); return; }
+  if (!ingreso)      { toast("La fecha de ingreso es obligatoria.", "error"); return; }
+  if (!FechaEntrega) { toast("La fecha de entrega es obligatoria.", "error"); return; }
   if (FechaEntrega < ingreso) { toast("La entrega no puede ser antes del ingreso.", "error"); return; }
 
   const data = {
     cliente,
-    telefono:    val("adm-f-telefono").trim(),
-    tipoPrenda:  prenda,
-    material:    val("adm-f-material"),
+    telefono: val("adm-f-telefono").trim(),
+    tipoPrenda: prenda,
+    material: val("adm-f-material"),
     cantidad,
-    precio:      parseFloat(val("adm-f-precio")) || null,
+    precio: parseFloat(val("adm-f-precio")) || null,
     fechaIngreso: ingreso,
     FechaEntrega,
-    notas:       val("adm-f-notas").trim()
+    notas: val("adm-f-notas").trim()
   };
 
   let ok;
   if (editId) {
-    data.Estado  = val("adm-f-estado");
-    data.Validado = data.Estado === "entregado"; // se marca Validado al entregar
+    data.Estado = val("adm-f-estado");
+    data.Validado = data.Estado === "entregado";
     ok = await updatePedido(editId, data);
   } else {
-    ok = await addPedido(data);
+    const order = await addPedido(data);
+    ok = !!order;
   }
 
   if (ok) {
     admOpenNew();
     admNavById("adm-view-pedidos");
+    await subscribeOrders();
   }
 }
 
-/* ══════════════════════════════════════════════
-   15. PANEL ADMIN — MODAL DE DETALLE
-══════════════════════════════════════════════ */
 function openModal(id) {
   const o = G.orders.find(x => x.id === id);
   if (!o) return;
@@ -669,7 +652,7 @@ async function admUpdateStatus() {
   if (!G.currentId) return;
   const newEstado = document.getElementById("modal-st-sel").value;
   const ok = await updatePedido(G.currentId, {
-    Estado:   newEstado,
+    Estado: newEstado,
     Validado: newEstado === "entregado"
   });
   if (ok) closeModal();
@@ -679,15 +662,16 @@ function admEditFromModal() {
   if (G.currentId) admOpenEdit(G.currentId);
 }
 
-// Confirmar borrado
 function confirmDelete(id) {
   G.delId = id;
   document.getElementById("confirm-overlay").classList.remove("hidden");
 }
+
 function closeConfirm() {
   document.getElementById("confirm-overlay").classList.add("hidden");
   G.delId = null;
 }
+
 async function executeDelete() {
   if (!G.delId) return;
   await deletePedido(G.delId);
@@ -695,16 +679,14 @@ async function executeDelete() {
   closeModal();
 }
 
-/* ══════════════════════════════════════════════
-   16. PANEL ADMIN — CLIENTES
-══════════════════════════════════════════════ */
 async function renderClientes() {
   try {
-    const snap  = await G.db.collection(COL_USUARIOS).get();
+    const data = await api("/users");
+    const users = data.users || [];
     const tbody = document.getElementById("clientes-tbody");
     if (!tbody) return;
 
-    if (snap.empty) {
+    if (!users.length) {
       tbody.innerHTML = '<tr><td colspan="4" class="t-empty">No hay clientes registrados.</td></tr>';
       return;
     }
@@ -714,23 +696,22 @@ async function renderClientes() {
       if (o.clienteUid) pedidosCount[o.clienteUid] = (pedidosCount[o.clienteUid] || 0) + 1;
     });
 
-    tbody.innerHTML = snap.docs.map(d => {
-      const c = d.data();
+    tbody.innerHTML = users.map(c => {
       const nombre = `${c.nombre || ""} ${c.apellido || ""}`.trim() || c.email;
       return `
         <tr>
           <td>${esc(nombre)}</td>
           <td>${esc(c.email || "—")}</td>
           <td>${esc(c.telefono || "—")}</td>
-          <td style="text-align:center">${pedidosCount[d.id] || 0}</td>
+          <td style="text-align:center">${pedidosCount[c.uid] || 0}</td>
         </tr>`;
     }).join("");
-  } catch (err) { /* silencioso */ }
+  } catch {}
 }
 
-/* ══════════════════════════════════════════════
-   SIDEBAR ADMIN (mobile)
-══════════════════════════════════════════════ */
+/* =========================================================
+   SIDEBAR / HELPERS
+========================================================= */
 function toggleSidebar() {
   const s  = document.getElementById("adm-sidebar");
   const ov = document.getElementById("sidebar-overlay");
@@ -742,11 +723,6 @@ function closeSidebar() {
   document.getElementById("sidebar-overlay")?.classList.add("hidden");
 }
 
-/* ══════════════════════════════════════════════
-   HELPERS GENERALES
-══════════════════════════════════════════════ */
-
-// Badge HTML de estado (usa campo Estado homologado)
 function badgeHtml(Estado) {
   const map = {
     pendiente:  ["b-pendiente",  "⏳ Pendiente"],
@@ -759,7 +735,6 @@ function badgeHtml(Estado) {
   return `<span class="badge ${cls}">${label}</span>`;
 }
 
-// Texto legible del Estado
 function estadoLabel(Estado) {
   const labels = {
     pendiente:  "Pendiente",
@@ -771,7 +746,6 @@ function estadoLabel(Estado) {
   return labels[Estado] || Estado || "—";
 }
 
-// Formato de fecha ISO → "15 mar 2025"
 function fmtDate(iso) {
   if (!iso) return "—";
   const [y, m, d] = iso.split("-");
@@ -779,10 +753,8 @@ function fmtDate(iso) {
   return `${parseInt(d)} ${meses[parseInt(m)-1]} ${y}`;
 }
 
-// Fecha de hoy en ISO
 function today() { return new Date().toISOString().split("T")[0]; }
 
-// Escape HTML (anti-XSS)
 function esc(s) {
   return String(s || "")
     .replace(/&/g, "&amp;")
@@ -791,7 +763,6 @@ function esc(s) {
     .replace(/"/g, "&quot;");
 }
 
-// Valor de input
 function val(id) {
   const el = document.getElementById(id);
   return el ? el.value : "";
@@ -801,29 +772,13 @@ function setVal(id, v) {
   if (el) el.value = v;
 }
 
-// Toggle contraseña visible
 function togglePass(inputId, btn) {
   const inp = document.getElementById(inputId);
   if (!inp) return;
-  if (inp.type === "password") { inp.type = "text";     btn.textContent = "🙈"; }
+  if (inp.type === "password") { inp.type = "text"; btn.textContent = "🙈"; }
   else                         { inp.type = "password"; btn.textContent = "👁"; }
 }
 
-// Errores de Auth
-function authError(err) {
-  const m = {
-    "auth/user-not-found":       "Correo no registrado.",
-    "auth/wrong-password":       "Contraseña incorrecta.",
-    "auth/invalid-email":        "Correo inválido.",
-    "auth/email-already-in-use": "Este correo ya está registrado.",
-    "auth/weak-password":        "Contraseña muy débil (mínimo 6 caracteres).",
-    "auth/too-many-requests":    "Demasiados intentos. Intenta más tarde.",
-    "auth/invalid-credential":   "Credenciales incorrectas."
-  };
-  return m[err.code] || `Error: ${err.message}`;
-}
-
-// Toast
 function toast(msg, type = "info") {
   const icons = { success:"✅", error:"❌", info:"ℹ️" };
   const c  = document.getElementById("toast-container");
@@ -834,12 +789,10 @@ function toast(msg, type = "info") {
   setTimeout(() => el.remove(), 4300);
 }
 
-// Cerrar modales con ESC
 document.addEventListener("keydown", e => {
   if (e.key === "Escape") { closeModal(); closeConfirm(); }
 });
 
-// Cerrar modal al clickear el overlay
 document.getElementById("modal-overlay")?.addEventListener("click", e => {
   if (e.target === document.getElementById("modal-overlay")) closeModal();
 });

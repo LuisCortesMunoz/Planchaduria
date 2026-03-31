@@ -8,14 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
-
-  <!-- Firebase SOLO para Auth en frontend -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 </head>
 <body>
 
-<!-- SVG del ícono de plancha reutilizable -->
 <template id="tpl-iron">
   <svg class="iron-icon" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
@@ -58,9 +53,7 @@
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════
-  LOGIN CLIENTE
-════════════════════════════════════════════ -->
+<!-- LOGIN CLIENTE -->
 <div id="screen-login-client" class="screen">
   <div class="phone-wrap">
     <div class="topbar-sm">
@@ -83,9 +76,7 @@
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════
-  REGISTRO CLIENTE
-════════════════════════════════════════════ -->
+<!-- REGISTRO CLIENTE -->
 <div id="screen-register" class="screen">
   <div class="phone-wrap">
     <div class="topbar-sm">
@@ -112,9 +103,7 @@
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════
-  MENÚ PRINCIPAL CLIENTE
-════════════════════════════════════════════ -->
+<!-- MENÚ PRINCIPAL CLIENTE -->
 <div id="screen-menu-client" class="screen">
   <div class="phone-wrap">
     <div class="topbar-sm center">
@@ -156,9 +145,7 @@
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════
-  ESTADO DE PRENDA (cliente)
-════════════════════════════════════════════ -->
+<!-- ESTADO DE PRENDA -->
 <div id="screen-estado-prenda" class="screen">
   <div class="phone-wrap">
     <div class="topbar-sm">
@@ -198,9 +185,7 @@
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════
-  MIS PRENDAS (historial cliente)
-════════════════════════════════════════════ -->
+<!-- MIS PRENDAS -->
 <div id="screen-mis-prendas" class="screen">
   <div class="phone-wrap">
     <div class="topbar-sm">
@@ -214,9 +199,7 @@
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════
-  NUEVA PRENDA — PASO 1
-════════════════════════════════════════════ -->
+<!-- NUEVA PRENDA -->
 <div id="screen-nueva-prenda" class="screen">
   <div class="phone-wrap">
     <div class="topbar-sm">
@@ -254,9 +237,7 @@
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════
-  CUENTA CLIENTE
-════════════════════════════════════════════ -->
+<!-- CUENTA CLIENTE -->
 <div id="screen-cuenta-cliente" class="screen">
   <div class="phone-wrap">
     <div class="topbar-sm">
@@ -273,9 +254,7 @@
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════
-  POLÍTICAS
-════════════════════════════════════════════ -->
+<!-- POLÍTICAS -->
 <div id="screen-politicas" class="screen">
   <div class="phone-wrap">
     <div class="topbar-sm">
@@ -293,9 +272,7 @@
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════
-  LOGIN ADMINISTRADOR
-════════════════════════════════════════════ -->
+<!-- LOGIN ADMIN -->
 <div id="screen-login-admin" class="screen admin-bg">
   <div class="phone-wrap">
     <div class="topbar-sm admin-topbar-sm">
@@ -318,9 +295,7 @@
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════
-  PANEL ADMINISTRADOR
-════════════════════════════════════════════ -->
+<!-- PANEL ADMIN -->
 <div id="screen-admin" class="screen admin-layout-screen hidden-screen">
   <aside class="adm-sidebar" id="adm-sidebar">
     <div class="adm-sidebar-logo">
@@ -344,7 +319,6 @@
     </header>
 
     <div class="adm-content">
-
       <div id="adm-view-dashboard" class="adm-view active-adm-view">
         <div class="metrics-row">
           <div class="metric-box c-red">   <span class="mn" id="m-total">0</span><span class="ml">Total</span></div>
@@ -451,7 +425,6 @@
           </div>
         </div>
       </div>
-
     </div>
   </div>
 </div>

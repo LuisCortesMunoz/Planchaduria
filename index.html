@@ -8,8 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+
+  <!-- Firebase SOLO para Auth en frontend -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 </head>
 <body>
@@ -223,7 +224,6 @@
       <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none"><path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/><rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/><path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/><circle cx="28" cy="8" r="3" fill="#e63329"/></svg>
     </div>
 
-    <!-- PASO 1 -->
     <div id="np-step1">
       <h2 class="screen-title">REGISTRA TU PRENDA</h2>
       <label class="field-lbl">Prenda:</label>
@@ -242,7 +242,6 @@
       <button class="btn-dark full" style="margin-top:1.25rem" onclick="npContinuar()">Continuar</button>
     </div>
 
-    <!-- PASO 2 -->
     <div id="np-step2" class="hidden">
       <h2 class="screen-title">INSTRUCCIONES</h2>
       <label class="field-lbl">Descripción / instrucciones especiales:</label>
@@ -320,7 +319,7 @@
 </div>
 
 <!-- ════════════════════════════════════════════
-  PANEL ADMINISTRADOR — LAYOUT COMPLETO
+  PANEL ADMINISTRADOR
 ════════════════════════════════════════════ -->
 <div id="screen-admin" class="screen admin-layout-screen hidden-screen">
   <aside class="adm-sidebar" id="adm-sidebar">
@@ -346,7 +345,6 @@
 
     <div class="adm-content">
 
-      <!-- DASHBOARD -->
       <div id="adm-view-dashboard" class="adm-view active-adm-view">
         <div class="metrics-row">
           <div class="metric-box c-red">   <span class="mn" id="m-total">0</span><span class="ml">Total</span></div>
@@ -369,7 +367,6 @@
         </div>
       </div>
 
-      <!-- PEDIDOS -->
       <div id="adm-view-pedidos" class="adm-view">
         <div class="adm-filters-bar">
           <input type="text" id="adm-search" class="adm-search-input" placeholder="🔍 Buscar cliente, prenda o ID…" oninput="applyFilters()"/>
@@ -393,7 +390,6 @@
         </div>
       </div>
 
-      <!-- NUEVO / EDITAR PEDIDO -->
       <div id="adm-view-nuevo" class="adm-view">
         <div class="adm-card" style="max-width:660px">
           <h3 id="adm-form-title" style="margin-bottom:1.25rem">Registrar nuevo pedido</h3>
@@ -444,7 +440,6 @@
         </div>
       </div>
 
-      <!-- CLIENTES -->
       <div id="adm-view-clientes" class="adm-view">
         <div class="adm-card">
           <h3 style="margin-bottom:1rem">Clientes registrados</h3>
@@ -457,11 +452,10 @@
         </div>
       </div>
 
-    </div><!-- /adm-content -->
-  </div><!-- /adm-body -->
+    </div>
+  </div>
 </div>
 
-<!-- Modal detalle pedido -->
 <div id="modal-overlay" class="modal-overlay hidden">
   <div class="modal-box">
     <div class="modal-hd"><h3>Detalle del pedido</h3><button class="modal-x" onclick="closeModal()">✕</button></div>
@@ -480,7 +474,6 @@
   </div>
 </div>
 
-<!-- Confirm delete -->
 <div id="confirm-overlay" class="modal-overlay hidden">
   <div class="modal-box" style="max-width:360px">
     <div class="modal-hd"><h3>¿Eliminar pedido?</h3><button class="modal-x" onclick="closeConfirm()">✕</button></div>
@@ -492,10 +485,7 @@
   </div>
 </div>
 
-<!-- Overlay sidebar móvil admin -->
 <div id="sidebar-overlay" class="sidebar-ov hidden" onclick="closeSidebar()"></div>
-
-<!-- Toast container -->
 <div id="toast-container"></div>
 
 <script src="app.js"></script>

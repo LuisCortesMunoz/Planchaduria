@@ -310,6 +310,7 @@ async function npFinalizar() {
 ========================= */
 async function loadMisPrendas() {
   const list = document.getElementById("mis-prendas-list");
+  list.className = "mis-prendas-gallery";
   list.innerHTML = '<p class="empty-msg">Cargando…</p>';
 
   try {
@@ -336,14 +337,14 @@ async function loadMisPrendas() {
         : `<p class="sin-fotos">Aún no hay fotos para este pedido.</p>`;
 
       return `
-        <div class="prenda-item pedido-card-col">
-          <div class="prenda-item-top">
-            <div class="prenda-item-info">
-              <span class="prenda-item-name">${esc(p.tipoPrenda)}</span>
-              <span class="prenda-item-sub">${fmtDate(p.fechaIngreso)} · ${esc(p.material || "")} · ${p.cantidad} pza.</span>
+        <div class="prenda-card-galeria">
+          <div class="prenda-card-head">
+            <div class="prenda-card-info">
+              <span class="prenda-card-title">${esc(p.tipoPrenda)}</span>
+              <span class="prenda-card-sub">${fmtDate(p.fechaIngreso)} · ${esc(p.material || "")} · ${p.cantidad} pza.</span>
               <span>${badgeHtml(p.Estado)}</span>
             </div>
-            <span class="prenda-item-id">${esc(p.Folio || "")}</span>
+            <span class="prenda-card-id">${esc(p.Folio || "")}</span>
           </div>
           ${fotosHtml}
         </div>

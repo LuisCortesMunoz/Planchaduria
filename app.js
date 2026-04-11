@@ -327,7 +327,7 @@ async function loadMisPrendas() {
           <div class="pedido-fotos">
             ${(p.fotos || []).map(f => `
               <div class="pedido-foto-item">
-                <img src="${BACKEND_URL}${f.url}" alt="Foto ${p.Folio}">
+                <img src="${f.url}" alt="Foto ${p.Folio}">
                 <span>${esc(f.fecha_hora || "")}</span>
               </div>
             `).join("")}
@@ -353,6 +353,7 @@ async function loadMisPrendas() {
     list.innerHTML = '<p class="empty-msg">Error al cargar prendas.</p>';
   }
 }
+
 async function buscarPedido() {
   const folio = val("tracking-input").trim().toUpperCase();
 
@@ -639,6 +640,19 @@ function openModal(id) {
 
   G.currentId = id;
 
+  const fotosHtml = (o.fotos || []).length
+    ? `
+      <div class="pedido-fotos" style="margin-top:16px;">
+        ${(o.fotos || []).map(f => `
+          <div class="pedido-foto-item">
+            <img src="${f.url}" alt="Foto ${o.Folio}">
+            <span>${esc(f.fecha_hora || "")}</span>
+          </div>
+        `).join("")}
+      </div>
+    `
+    : `<p class="sin-fotos" style="margin-top:16px;">Aún no hay fotos para este pedido.</p>`;
+
   document.getElementById("modal-bd").innerHTML = `
     <div class="det-grid">
       <div class="det-item"><span class="det-lbl">Folio</span><span class="det-val">${esc(o.Folio || "—")}</span></div>
@@ -654,6 +668,10 @@ function openModal(id) {
       <div class="det-item"><span class="det-lbl">Ingreso</span><span class="det-val">${fmtDate(o.fechaIngreso)}</span></div>
       <div class="det-item"><span class="det-lbl">Entrega est.</span><span class="det-val">${fmtDate(o.FechaEntrega)}</span></div>
       ${o.notas ? `<div class="det-item full"><span class="det-lbl">Notas</span><span class="det-val">${esc(o.notas)}</span></div>` : ""}
+      <div class="det-item full">
+        <span class="det-lbl">Fotos</span>
+        <div class="det-val">${fotosHtml}</div>
+      </div>
     </div>
   `;
 

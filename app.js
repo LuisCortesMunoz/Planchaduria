@@ -8,8 +8,7 @@ const G = {
   filtered: [],
   currentId: null,
   delId: null,
-  material: "",
-  pendingVerification: null
+  material: ""
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -111,7 +110,6 @@ function clearSession() {
   G.filtered = [];
   G.currentId = null;
   G.delId = null;
-  G.pendingVerification = null;
 
   localStorage.removeItem("token");
   localStorage.removeItem("user");
@@ -144,18 +142,6 @@ async function loginClient() {
     loadCuenta();
   } catch (err) {
     toast(err.message, "error");
-
-    if (String(err.message).toLowerCase().includes("validar tu correo")) {
-      const wantsResend = confirm("Tu correo aún no está validado. ¿Deseas reenviar el código?");
-      if (wantsResend) {
-        try {
-          await api("/api/auth/resend-code", "POST", { email });
-          toast("Te enviamos un nuevo código de verificación.", "info");
-        } catch (resendErr) {
-          toast(resendErr.message, "error");
-        }
-      }
-    }
   }
 }
 
@@ -185,82 +171,10 @@ async function registerClient() {
       password
     });
 
-    G.pendingVerification = {
-      email,
-      password
-    };
-
-    toast(data.message || "Te enviamos un código a tu correo.", "info");
-    await requestCodeAndVerify();
-  } catch (err) {
-    toast(err.message, "error");
-  }
-}
-
-async function requestCodeAndVerify() {
-  if (!G.pendingVerification?.email || !G.pendingVerification?.password) {
-    toast("No hay un registro pendiente por verificar.", "error");
-    return;
-  }
-
-  const code = prompt("Ingresa el código de 6 dígitos que recibiste por correo:");
-
-  if (!code) {
-    toast("Registro pendiente. Cuando tengas el código, vuelve a registrarte o pide reenvío.", "info");
-    return;
-  }
-
-  await submitVerificationCode(code.trim());
-}
-
-async function submitVerificationCode(code) {
-  if (!G.pendingVerification?.email || !G.pendingVerification?.password) {
-    toast("No hay un registro pendiente por verificar.", "error");
-    return;
-  }
-
-  if (!/^\d{6}$/.test(code)) {
-    toast("El código debe tener 6 dígitos.", "error");
-    return;
-  }
-
-  try {
-    const data = await api("/api/auth/verify-email-code", "POST", {
-      email: G.pendingVerification.email,
-      password: G.pendingVerification.password,
-      code
-    });
-
     setSession(data.token, data.user);
-    G.pendingVerification = null;
-
-    toast("¡Correo validado y cuenta activada!", "success");
+    toast("¡Cuenta creada! Bienvenido.", "success");
     goTo("screen-menu-client");
     loadCuenta();
-  } catch (err) {
-    toast(err.message, "error");
-
-    const wantsResend = confirm("El código no funcionó o expiró. ¿Deseas reenviarlo?");
-    if (wantsResend) {
-      await resendVerificationCode();
-    }
-  }
-}
-
-async function resendVerificationCode() {
-  const email =
-    G.pendingVerification?.email ||
-    val("reg-email").trim() ||
-    val("cl-email").trim();
-
-  if (!email) {
-    toast("No se encontró un correo para reenviar el código.", "error");
-    return;
-  }
-
-  try {
-    await api("/api/auth/resend-code", "POST", { email });
-    toast("Te enviamos un nuevo código de verificación.", "info");
   } catch (err) {
     toast(err.message, "error");
   }

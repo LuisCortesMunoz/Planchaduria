@@ -1,5 +1,6 @@
+// ================================
 // app.js
-
+// ================================
 const BACKEND_URL = "https://docker-planchaduria.onrender.com";
 
 const G = {
@@ -78,7 +79,11 @@ function goTo(screenId) {
 }
 
 async function api(path, method = "GET", body = null, withAuth = false) {
-  const headers = { "Content-Type": "application/json" };
+  const headers = {};
+
+  if (!(body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
 
   if (withAuth && G.token) {
     headers["Authorization"] = `Bearer ${G.token}`;
@@ -87,7 +92,9 @@ async function api(path, method = "GET", body = null, withAuth = false) {
   const response = await fetch(`${BACKEND_URL}${path}`, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : null
+    body: body
+      ? (body instanceof FormData ? body : JSON.stringify(body))
+      : null
   });
 
   const data = await response.json().catch(() => ({}));
@@ -276,8 +283,8 @@ function npContinuar() {
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const entrega = document.getElementById("np-entrega");
-  if (entrega) entrega.min = tomorrow.toISOString().split("T")[0];
+  const el = document.getElementById("np-entrega");
+  if (el) el.min = tomorrow.toISOString().split("T")[0];
 }
 
 function npVolver() {
@@ -397,10 +404,10 @@ async function buscarPedido() {
   }
 }
 
-async function loadCuenta() {
+function loadCuenta() {
   if (!G.user) return;
-  setText("cuenta-name", G.user.nombreCompleto || G.user.email);
-  setText("cuenta-email", G.user.email);
+  setText("cuenta-name", G.user.nombreCompleto || G.user.email || "");
+  setText("cuenta-email", G.user.email || "");
 }
 
 /* =========================
@@ -413,10 +420,10 @@ function showAdmin() {
   });
 
   const adminScreen = document.getElementById("screen-admin");
-  if (!adminScreen) return;
-
-  adminScreen.style.display = "flex";
-  adminScreen.classList.add("active");
+  if (adminScreen) {
+    adminScreen.style.display = "flex";
+    adminScreen.classList.add("active");
+  }
 
   setText("adm-user-pill", (G.user?.email || "Admin").split("@")[0]);
 }
@@ -472,11 +479,11 @@ function updateMetrics() {
     if (cnt[o.Estado] !== undefined) cnt[o.Estado]++;
   });
 
-  setText("m-total", G.orders.length);
-  setText("m-pend", cnt.pendiente);
-  setText("m-proc", cnt.en_proceso + cnt.planchado);
-  setText("m-list", cnt.listo);
-  setText("m-ent", cnt.entregado);
+  setText("m-total", String(G.orders.length));
+  setText("m-pend", String(cnt.pendiente));
+  setText("m-proc", String(cnt.en_proceso + cnt.planchado));
+  setText("m-list", String(cnt.listo));
+  setText("m-ent", String(cnt.entregado));
 }
 
 function renderDashRecent() {
@@ -554,7 +561,7 @@ function renderPedidosTable() {
 }
 
 function admOpenNew() {
-  ["adm-f-cliente","adm-f-telefono","adm-f-prenda","adm-f-cantidad","adm-f-precio","adm-f-notas"].forEach(id => setVal(id, ""));
+  ["adm-f-cliente", "adm-f-telefono", "adm-f-prenda", "adm-f-cantidad", "adm-f-precio", "adm-f-notas"].forEach(id => setVal(id, ""));
   setVal("adm-edit-id", "");
   setVal("adm-f-material", "");
   setVal("adm-f-ingreso", today());
@@ -671,7 +678,10 @@ function openModal(id) {
     `
     : `<p class="sin-fotos" style="margin-top:16px;">Aún no hay fotos para este pedido.</p>`;
 
-  document.getElementById("modal-bd").innerHTML = `
+  const modal = document.getElementById("modal-bd");
+  if (!modal) return;
+
+  modal.innerHTML = `
     <div class="det-grid">
       <div class="det-item"><span class="det-lbl">Folio</span><span class="det-val">${esc(o.Folio || "—")}</span></div>
       <div class="det-item"><span class="det-lbl">Estado</span><span class="det-val">${badgeHtml(o.Estado)}</span></div>
@@ -693,8 +703,8 @@ function openModal(id) {
     </div>
   `;
 
-  const select = document.getElementById("modal-st-sel");
-  if (select) select.value = o.Estado || "pendiente";
+  const st = document.getElementById("modal-st-sel");
+  if (st) st.value = o.Estado || "pendiente";
 
   document.getElementById("modal-overlay")?.classList.remove("hidden");
 }
@@ -775,8 +785,10 @@ function renderClientes(clients) {
 function toggleSidebar() {
   const s = document.getElementById("adm-sidebar");
   const ov = document.getElementById("sidebar-overlay");
-  s?.classList.toggle("open");
-  ov?.classList.toggle("hidden", !s?.classList.contains("open"));
+  if (!s || !ov) return;
+
+  s.classList.toggle("open");
+  ov.classList.toggle("hidden", !s.classList.contains("open"));
 }
 
 function closeSidebar() {
@@ -810,35 +822,8 @@ function estadoLabel(Estado) {
   return labels[Estado] || Estado || "—";
 }
 
-function fmtDate(s) {
-  if (!s) return "—";
-  try {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-      const [y, m, d] = s.split("-");
-      return `${d}/${m}/${y}`;
-    }
-    const dt = new Date(s);
-    if (isNaN(dt.getTime())) return s;
-    return dt.toLocaleString("es-MX", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit"
-    });
-  } catch {
-    return s;
-  }
-}
-
-function today() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function esc(v) {
-  return String(v ?? "")
+function esc(value) {
+  return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -860,18 +845,60 @@ function setText(id, value) {
   if (el) el.textContent = value;
 }
 
+function today() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function fmtDate(value) {
+  if (!value) return "—";
+  const d = new Date(`${value}T00:00:00`);
+  if (isNaN(d.getTime())) return value;
+  return d.toLocaleDateString("es-MX", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  });
+}
+
 function toast(message, type = "info") {
-  const box = document.getElementById("toast");
-  if (!box) {
-    alert(message);
-    return;
+  let wrap = document.getElementById("toast-wrap");
+
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.id = "toast-wrap";
+    wrap.style.position = "fixed";
+    wrap.style.top = "16px";
+    wrap.style.right = "16px";
+    wrap.style.zIndex = "9999";
+    wrap.style.display = "flex";
+    wrap.style.flexDirection = "column";
+    wrap.style.gap = "10px";
+    document.body.appendChild(wrap);
   }
 
-  box.textContent = message;
-  box.className = `toast show ${type}`;
+  const item = document.createElement("div");
+  item.textContent = message;
+  item.style.padding = "12px 16px";
+  item.style.borderRadius = "12px";
+  item.style.color = "#fff";
+  item.style.fontWeight = "600";
+  item.style.boxShadow = "0 10px 25px rgba(0,0,0,.18)";
+  item.style.maxWidth = "320px";
+  item.style.wordBreak = "break-word";
+  item.style.background =
+    type === "success" ? "#0f9d58" :
+    type === "error" ? "#d93025" :
+    "#3c4043";
 
-  clearTimeout(box._timer);
-  box._timer = setTimeout(() => {
-    box.classList.remove("show");
-  }, 2500);
+  wrap.appendChild(item);
+
+  setTimeout(() => {
+    item.style.opacity = "0";
+    item.style.transform = "translateY(-6px)";
+    item.style.transition = "all .25s ease";
+  }, 2800);
+
+  setTimeout(() => {
+    item.remove();
+  }, 3200);
 }

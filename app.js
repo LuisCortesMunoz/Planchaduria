@@ -1,5 +1,5 @@
 // ================================
-// app.js
+// app.js corregido
 // ================================
 const BACKEND_URL = "https://docker-planchaduria.onrender.com";
 
@@ -128,6 +128,21 @@ function clearSession() {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
   localStorage.removeItem("isAdmin");
+}
+
+function fotoUrl(url) {
+  const value = String(url || "").trim();
+  if (!value) return "";
+
+  if (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("data:")) {
+    return value;
+  }
+
+  if (value.startsWith("/")) {
+    return `${BACKEND_URL}${value}`;
+  }
+
+  return `${BACKEND_URL}/${value}`;
 }
 
 /* =========================
@@ -339,12 +354,13 @@ async function loadMisPrendas() {
     }
 
     list.innerHTML = pedidos.map(p => {
-      const fotosHtml = (p.fotos || []).length
+      const fotos = Array.isArray(p.fotos) ? p.fotos : [];
+      const fotosHtml = fotos.length
         ? `
           <div class="pedido-fotos">
-            ${(p.fotos || []).map(f => `
+            ${fotos.map(f => `
               <div class="pedido-foto-item">
-                <img src="${f.url}" alt="Foto ${esc(p.Folio)}">
+                <img src="${esc(fotoUrl(f.url))}" alt="Foto ${esc(p.Folio)}">
                 <span>${esc(f.fecha_hora || "")}</span>
               </div>
             `).join("")}
@@ -665,12 +681,13 @@ function openModal(id) {
 
   G.currentId = id;
 
-  const fotosHtml = (o.fotos || []).length
+  const fotos = Array.isArray(o.fotos) ? o.fotos : [];
+  const fotosHtml = fotos.length
     ? `
       <div class="pedido-fotos" style="margin-top:16px;">
-        ${(o.fotos || []).map(f => `
+        ${fotos.map(f => `
           <div class="pedido-foto-item">
-            <img src="${f.url}" alt="Foto ${esc(o.Folio)}">
+            <img src="${esc(fotoUrl(f.url))}" alt="Foto ${esc(o.Folio)}">
             <span>${esc(f.fecha_hora || "")}</span>
           </div>
         `).join("")}
@@ -851,9 +868,21 @@ function today() {
 
 function fmtDate(value) {
   if (!value) return "—";
-  const d = new Date(`${value}T00:00:00`);
-  if (isNaN(d.getTime())) return value;
-  return d.toLocaleDateString("es-MX", {
+  if (String(value).includes("T")) {
+    const d1 = new Date(value);
+    if (!isNaN(d1.getTime())) {
+      return d1.toLocaleDateString("es-MX", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      });
+    }
+  }
+
+  const d2 = new Date(`${value}T00:00:00`);
+  if (isNaN(d2.getTime())) return value;
+
+  return d2.toLocaleDateString("es-MX", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit"

@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+  <title>Planchado Express</title>
+  <link rel="stylesheet" href="styles.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+<template id="tpl-iron">
+  <svg class="iron-icon" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
+    <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
+    <path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="28" cy="8" r="3" fill="#e63329"/>
+    <circle cx="45" cy="30" r="2" fill="white" opacity="0.7"/>
+    <circle cx="53" cy="30" r="2" fill="white" opacity="0.7"/>
+    <circle cx="61" cy="30" r="2" fill="white" opacity="0.7"/>
+  </svg>
+</template>
+
+<!-- ════════════════════════════════════════════
+  SPLASH / INICIO
+════════════════════════════════════════════ -->
+<div id="screen-splash" class="screen active">
+  <div class="phone-wrap">
+    <div class="logo-block">
+      <svg class="iron-icon lg" viewBox="0 0 80 60" fill="none">
+        <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
+        <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
+        <path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="28" cy="8" r="3" fill="#e63329"/>
+        <circle cx="45" cy="30" r="2" fill="white" opacity="0.7"/>
+        <circle cx="53" cy="30" r="2" fill="white" opacity="0.7"/>
+        <circle cx="61" cy="30" r="2" fill="white" opacity="0.7"/>
+      </svg>
+      <p class="brand-name">PLANCHADO EXPRESS</p>
+    </div>
+
+    <div class="splash-card">
+      <p class="splash-welcome">Te damos la<br/>bienvenida a</p>
+      <p class="splash-brand-red">PLANCHADO EXPRESS</p>
+      <p class="splash-sub">Monitorea el proceso de tu prenda en tiempo real desde tu dispositivo móvil</p>
+      <button class="btn-dark full" onclick="goTo('screen-login-client')">Iniciar Sesión</button>
+      <button class="btn-outline full" onclick="goTo('screen-register')">Crear Nueva Cuenta</button>
+    </div>
+
+    <button class="admin-link-btn" onclick="goTo('screen-login-admin')">Acceso administrador →</button>
+  </div>
+</div>
+
+<!-- LOGIN CLIENTE -->
+<div id="screen-login-client" class="screen">
+  <div class="phone-wrap">
+    <div class="topbar-sm">
+      <button class="back-btn" onclick="goTo('screen-splash')">←</button>
+      <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none"><path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/><rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/><path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/><circle cx="28" cy="8" r="3" fill="#e63329"/></svg>
+    </div>
+    <div class="form-card">
+      <h2 class="form-title">Iniciar Sesión</h2>
+      <div class="input-row">
+        <span class="flag">🇲🇽</span>
+        <input type="email" id="cl-email" placeholder="correo@ejemplo.com" class="field"/>
+      </div>
+      <div class="input-row">
+        <input type="password" id="cl-pass" placeholder="Contraseña" class="field"/>
+        <button class="eye-btn" onclick="togglePass('cl-pass',this)">👁</button>
+      </div>
+      <button class="btn-dark full" onclick="loginClient()">Iniciar Sesión</button>
+      <p class="form-hint">¿No tienes cuenta? <span class="link-span" onclick="goTo('screen-register')">Regístrate</span></p>
+    </div>
+  </div>
+</div>
+
+<!-- REGISTRO CLIENTE -->
+<div id="screen-register" class="screen">
+  <div class="phone-wrap">
+    <div class="topbar-sm">
+      <button class="back-btn" onclick="goTo('screen-splash')">←</button>
+      <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none"><path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/><rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/><path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/><circle cx="28" cy="8" r="3" fill="#e63329"/></svg>
+    </div>
+    <div class="form-card">
+      <h2 class="form-title">Nueva Cuenta</h2>
+      <p class="form-subtitle">Crea una cuenta para continuar</p>
+      <input type="text" id="reg-nombre" placeholder="Nombre" class="field solo"/>
+      <input type="text" id="reg-apellido" placeholder="Apellido" class="field solo"/>
+      <input type="email" id="reg-email" placeholder="Correo" class="field solo"/>
+      <div class="input-row">
+        <span class="flag">🇲🇽</span>
+        <input type="tel" id="reg-phone" placeholder="(454) 726-0592" class="field"/>
+      </div>
+      <div class="input-row">
+        <input type="password" id="reg-pass" placeholder="Contraseña" class="field"/>
+        <button class="eye-btn" onclick="togglePass('reg-pass',this)">👁</button>
+      </div>
+      <button class="btn-dark full" onclick="registerClient()">Crear Cuenta</button>
+      <p class="form-hint">¿Ya tienes cuenta? <span class="link-span" onclick="goTo('screen-login-client')">Inicia sesión</span></p>
+    </div>
+  </div>
+</div>
+
+<!-- MENÚ PRINCIPAL CLIENTE -->
+<div id="screen-menu-client" class="screen">
+  <div class="phone-wrap">
+    <div class="topbar-sm center">
+      <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none"><path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/><rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/><path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/><circle cx="28" cy="8" r="3" fill="#e63329"/></svg>
+    </div>
+    <div class="menu-welcome">
+      <p class="welcome-text">Bienvenido a</p>
+      <h1 class="welcome-brand">PLANCHADO EXPRESS</h1>
+    </div>
+    <div class="menu-grid">
+      <button class="menu-tile" onclick="goTo('screen-mis-prendas');loadMisPrendas()">
+        <div class="tile-icon">
+          <svg viewBox="0 0 48 48" fill="none" width="40" height="40"><rect x="8" y="14" width="32" height="26" rx="4" stroke="#e63329" stroke-width="2.5"/><path d="M16 14V12a8 8 0 0116 0v2" stroke="#e63329" stroke-width="2.5"/><path d="M14 24h20M14 32h12" stroke="#e63329" stroke-width="2" stroke-linecap="round"/><circle cx="36" cy="36" r="7" fill="#e63329"/><path d="M33 36l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </div>
+        <span>Prendas Registradas</span>
+      </button>
+      <button class="menu-tile" onclick="goTo('screen-estado-prenda')">
+        <div class="tile-icon">
+          <svg viewBox="0 0 48 48" fill="none" width="40" height="40"><circle cx="24" cy="26" r="14" stroke="#e63329" stroke-width="2.5"/><path d="M24 18v8l5 3" stroke="#e63329" stroke-width="2.5" stroke-linecap="round"/><path d="M17 8l-3-3M31 8l3-3" stroke="#e63329" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <span>Estado de Prenda</span>
+      </button>
+      <button class="menu-tile" onclick="goTo('screen-cuenta-cliente');loadCuenta()">
+        <div class="tile-icon">
+          <svg viewBox="0 0 48 48" fill="none" width="40" height="40"><circle cx="24" cy="18" r="8" stroke="#e63329" stroke-width="2.5"/><path d="M8 40c0-8.837 7.163-16 16-16s16 7.163 16 16" stroke="#e63329" stroke-width="2.5" stroke-linecap="round"/></svg>
+        </div>
+        <span>Cuenta</span>
+      </button>
+      <button class="menu-tile" onclick="goTo('screen-politicas')">
+        <div class="tile-icon">
+          <svg viewBox="0 0 48 48" fill="none" width="40" height="40"><rect x="10" y="8" width="28" height="34" rx="3" stroke="#e63329" stroke-width="2.5"/><path d="M16 18h16M16 25h16M16 32h10" stroke="#e63329" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <span>Política</span>
+      </button>
+    </div>
+    <button class="btn-dark full" onclick="goTo('screen-nueva-prenda');resetNuevaPrenda()">Nueva Prenda</button>
+    <p class="menu-note">Registra una nueva prenda para planchado</p>
+    <button class="logout-link-btn" onclick="clientLogout()">Cerrar sesión</button>
+  </div>
+</div>
+
+<!-- ESTADO DE PRENDA -->
+<div id="screen-estado-prenda" class="screen">
+  <div class="phone-wrap">
+    <div class="topbar-sm">
+      <button class="back-btn" onclick="goTo('screen-menu-client')">←</button>
+      <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none"><path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/><rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/><path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/><circle cx="28" cy="8" r="3" fill="#e63329"/></svg>
+    </div>
+    <h2 class="screen-title">ESTADO DE PRENDA</h2>
+
+    <div class="tracking-box">
+      <label class="field-lbl">Ingresa tu ID de seguimiento</label>
+      <div class="input-row" style="margin-top:.5rem">
+        <input type="text" id="tracking-input" placeholder="#00001" class="field" style="text-transform:uppercase"/>
+        <button class="btn-red-sq" onclick="buscarPedido()">Buscar</button>
+      </div>
+    </div>
+
+    <div id="tracking-result" class="hidden">
+      <div class="info-card">
+        <p class="info-lbl">Id de Seguimiento:</p>
+        <p class="tracking-id-big" id="tr-id">#00001</p>
+        <p class="info-hint">con él puedes consultar tu status</p>
+      </div>
+      <div class="info-card">
+        <p class="info-lbl">Prenda:</p>
+        <p class="info-val" id="tr-prenda">—</p>
+        <p class="info-lbl" style="margin-top:.5rem">Cliente:</p>
+        <p class="info-val" id="tr-cliente">—</p>
+        <p class="info-lbl" style="margin-top:.5rem">Entrega estimada:</p>
+        <p class="info-val" id="tr-entrega">—</p>
+      </div>
+      <div class="info-card estado-card">
+        <p class="info-lbl">Estado:</p>
+        <p class="estado-big" id="tr-estado">—</p>
+      </div>
+    </div>
+    <p id="tracking-empty" class="empty-msg">Ingresa tu ID para ver el estado de tu prenda.</p>
+  </div>
+</div>
+
+<!-- MIS PRENDAS -->
+<div id="screen-mis-prendas" class="screen">
+  <div class="phone-wrap">
+    <div class="topbar-sm">
+      <button class="back-btn" onclick="goTo('screen-menu-client')">←</button>
+      <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none"><path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/><rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/><path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/><circle cx="28" cy="8" r="3" fill="#e63329"/></svg>
+    </div>
+    <h2 class="screen-title">HISTORIAL DE PRENDAS</h2>
+    <div id="mis-prendas-list">
+      <p class="empty-msg">Cargando tus prendas…</p>
+    </div>
+  </div>
+</div>
+
+<!-- NUEVA PRENDA -->
+<div id="screen-nueva-prenda" class="screen">
+  <div class="phone-wrap">
+    <div class="topbar-sm">
+      <button class="back-btn" onclick="goTo('screen-menu-client')">←</button>
+      <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none"><path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/><rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/><path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/><circle cx="28" cy="8" r="3" fill="#e63329"/></svg>
+    </div>
+
+    <div id="np-step1">
+      <h2 class="screen-title">REGISTRA TU PRENDA</h2>
+      <label class="field-lbl">Prenda:</label>
+      <input type="text" id="np-nombre" placeholder="ej. vestido largo azul" class="field solo"/>
+      <label class="field-lbl" style="margin-top:.75rem">Cantidad:</label>
+      <input type="number" id="np-cantidad" placeholder="1" class="field solo" min="1" value="1"/>
+      <label class="field-lbl" style="margin-top:.75rem">Escoge el material de tu prenda</label>
+      <div class="material-grid">
+        <button class="mat-btn" onclick="selectMaterial(this)">Algodón</button>
+        <button class="mat-btn" onclick="selectMaterial(this)">Lino</button>
+        <button class="mat-btn" onclick="selectMaterial(this)">Lana</button>
+        <button class="mat-btn" onclick="selectMaterial(this)">Seda</button>
+        <button class="mat-btn" onclick="selectMaterial(this)">Poliéster</button>
+        <button class="mat-btn" onclick="selectMaterial(this)">Nylon</button>
+      </div>
+      <button class="btn-dark full" style="margin-top:1.25rem" onclick="npContinuar()">Continuar</button>
+    </div>
+
+    <div id="np-step2" class="hidden">
+      <h2 class="screen-title">INSTRUCCIONES</h2>
+      <label class="field-lbl">Descripción / instrucciones especiales:</label>
+      <textarea id="np-instrucciones" class="textarea-field" placeholder="Manchas, cuidados especiales, condiciones de la prenda…"></textarea>
+      <label class="field-lbl" style="margin-top:.75rem">Fecha estimada de entrega:</label>
+      <input type="date" id="np-entrega" class="field solo"/>
+      <button class="btn-dark full" style="margin-top:1.25rem" onclick="npFinalizar()">Finalizar</button>
+      <button class="btn-outline full" style="margin-top:.5rem" onclick="npVolver()">← Regresar</button>
+    </div>
+  </div>
+</div>
+
+<!-- CUENTA CLIENTE -->
+<div id="screen-cuenta-cliente" class="screen">
+  <div class="phone-wrap">
+    <div class="topbar-sm">
+      <button class="back-btn" onclick="goTo('screen-menu-client')">←</button>
+      <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none"><path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/><rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/><path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/><circle cx="28" cy="8" r="3" fill="#e63329"/></svg>
+    </div>
+    <h2 class="screen-title">CUENTA</h2>
+    <div class="cuenta-block">
+      <div class="cuenta-avatar-big">👤</div>
+      <p class="cuenta-name-big" id="cuenta-name">—</p>
+      <p class="cuenta-email-sm" id="cuenta-email">—</p>
+    </div>
+    <button class="btn-dark full" style="margin-top:2rem" onclick="clientLogout()">Cerrar sesión</button>
+  </div>
+</div>
+
+<!-- POLÍTICAS -->
+<div id="screen-politicas" class="screen">
+  <div class="phone-wrap">
+    <div class="topbar-sm">
+      <button class="back-btn" onclick="goTo('screen-menu-client')">←</button>
+      <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none"><path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/><rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/><path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/><circle cx="28" cy="8" r="3" fill="#e63329"/></svg>
+    </div>
+    <h2 class="screen-title">POLÍTICA</h2>
+    <div class="politica-body">
+      <h4>1. Servicio</h4><p>Planchado Express ofrece servicio profesional de planchado para todo tipo de prendas de manera oportuna y de calidad.</p>
+      <h4>2. Entregas</h4><p>Las fechas de entrega son estimadas. Te notificaremos ante cualquier cambio en tu pedido.</p>
+      <h4>3. Responsabilidad</h4><p>No nos hacemos responsables de prendas que no sean recogidas después de 30 días naturales.</p>
+      <h4>4. Privacidad</h4><p>Tus datos son utilizados únicamente para gestionar tu servicio y no serán compartidos con terceros.</p>
+      <h4>5. Pagos</h4><p>El pago se realiza al momento de recoger la prenda. Aceptamos efectivo y transferencia bancaria.</p>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN ADMIN -->
+<div id="screen-login-admin" class="screen admin-bg">
+  <div class="phone-wrap">
+    <div class="topbar-sm admin-topbar-sm">
+      <button class="back-btn light" onclick="goTo('screen-splash')">←</button>
+      <svg class="iron-icon sm white-icon" viewBox="0 0 80 60" fill="none"><path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="white"/><rect x="26" y="40" width="36" height="6" rx="3" fill="white"/><path d="M35 20 L28 8" stroke="white" stroke-width="3" stroke-linecap="round"/><circle cx="28" cy="8" r="3" fill="white"/></svg>
+    </div>
+    <div class="admin-login-box">
+      <div class="admin-badge-pill">MODO ADMINISTRADOR</div>
+      <h2 class="admin-title">Panel de Control</h2>
+      <p class="admin-subtitle">Acceso exclusivo — solo personal autorizado</p>
+      <label class="field-lbl light">Correo electrónico</label>
+      <input type="email" id="adm-email" placeholder="admin@planchadoexpress.com" class="field admin-field"/>
+      <label class="field-lbl light" style="margin-top:.75rem">Contraseña</label>
+      <div class="input-row">
+        <input type="password" id="adm-pass" placeholder="••••••••" class="field admin-field"/>
+        <button class="eye-btn light" onclick="togglePass('adm-pass',this)">👁</button>
+      </div>
+      <button class="btn-red full" style="margin-top:1.25rem" onclick="loginAdmin()">Entrar al panel</button>
+    </div>
+  </div>
+</div>
+
+<!-- PANEL ADMIN -->
+<div id="screen-admin" class="screen admin-layout-screen hidden-screen">
+  <aside class="adm-sidebar" id="adm-sidebar">
+    <div class="adm-sidebar-logo">
+      <svg class="iron-icon xs white-icon" viewBox="0 0 80 60" fill="none"><path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="white"/><rect x="26" y="40" width="36" height="6" rx="3" fill="white"/><path d="M35 20 L28 8" stroke="white" stroke-width="3" stroke-linecap="round"/><circle cx="28" cy="8" r="3" fill="white"/></svg>
+      <span>Planchado Express</span>
+    </div>
+    <nav class="adm-nav">
+      <button class="adm-nav-btn active" data-view="adm-view-dashboard" onclick="admNav(this)">📊 Dashboard</button>
+      <button class="adm-nav-btn" data-view="adm-view-pedidos" onclick="admNav(this)">📋 Pedidos</button>
+      <button class="adm-nav-btn" data-view="adm-view-nuevo" onclick="admNav(this);admOpenNew()">➕ Nuevo Pedido</button>
+      <button class="adm-nav-btn" data-view="adm-view-clientes" onclick="admNav(this)">👥 Clientes</button>
+    </nav>
+    <button class="adm-logout" onclick="adminLogout()">⇠ Cerrar sesión</button>
+  </aside>
+
+  <div class="adm-body">
+    <header class="adm-topbar">
+      <button class="hamburger-btn" onclick="toggleSidebar()">☰</button>
+      <h1 class="adm-topbar-title" id="adm-page-title">Dashboard</h1>
+      <div class="adm-user-pill" id="adm-user-pill">Admin</div>
+    </header>
+
+    <div class="adm-content">
+      <div id="adm-view-dashboard" class="adm-view active-adm-view">
+        <div class="metrics-row">
+          <div class="metric-box c-red">   <span class="mn" id="m-total">0</span><span class="ml">Total</span></div>
+          <div class="metric-box c-yellow"><span class="mn" id="m-pend">0</span> <span class="ml">Pendientes</span></div>
+          <div class="metric-box c-blue">  <span class="mn" id="m-proc">0</span> <span class="ml">En proceso</span></div>
+          <div class="metric-box c-green"> <span class="mn" id="m-list">0</span> <span class="ml">Listos</span></div>
+          <div class="metric-box c-purple"><span class="mn" id="m-ent">0</span>  <span class="ml">Entregados</span></div>
+        </div>
+        <div class="adm-card">
+          <div class="adm-card-head">
+            <h3>Últimos pedidos</h3>
+            <button class="link-txt" onclick="admNavById('adm-view-pedidos')">Ver todos →</button>
+          </div>
+          <div class="tbl-wrap">
+            <table class="adm-tbl">
+              <thead><tr><th>ID</th><th>Cliente</th><th>Prenda</th><th>Ingreso</th><th>Estado</th><th></th></tr></thead>
+              <tbody id="dash-tbody"><tr><td colspan="6" class="t-empty">Cargando…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="adm-view-pedidos" class="adm-view">
+        <div class="adm-filters-bar">
+          <input type="text" id="adm-search" class="adm-search-input" placeholder="🔍 Buscar cliente, prenda o ID…" oninput="applyFilters()"/>
+          <select id="adm-filter-st" class="adm-sel" onchange="applyFilters()">
+            <option value="">Todos los estados</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="en_proceso">En proceso</option>
+            <option value="planchado">Planchado</option>
+            <option value="listo">Listo para entrega</option>
+            <option value="entregado">Entregado</option>
+          </select>
+          <button class="btn-red" onclick="admNav(document.querySelector('[data-view=adm-view-nuevo]'));admOpenNew()">＋ Nuevo</button>
+        </div>
+        <div class="adm-card">
+          <div class="tbl-wrap">
+            <table class="adm-tbl">
+              <thead><tr><th>ID</th><th>Cliente</th><th>Prenda</th><th>Material</th><th>Cant.</th><th>Ingreso</th><th>Entrega</th><th>Estado</th><th>Acciones</th></tr></thead>
+              <tbody id="pedidos-tbody"><tr><td colspan="9" class="t-empty">Cargando…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="adm-view-nuevo" class="adm-view">
+        <div class="adm-card" style="max-width:660px">
+          <h3 id="adm-form-title" style="margin-bottom:1.25rem">Registrar nuevo pedido</h3>
+          <input type="hidden" id="adm-edit-id"/>
+
+          <div class="form-section-lbl">Datos del cliente</div>
+          <div class="form-2col">
+            <div class="form-fld"><label>Nombre completo *</label><input type="text" id="adm-f-cliente" class="adm-input" placeholder="María González"/></div>
+            <div class="form-fld"><label>Teléfono</label><input type="tel" id="adm-f-telefono" class="adm-input" placeholder="55 1234 5678"/></div>
+          </div>
+
+          <div class="form-section-lbl">Detalles de la prenda</div>
+          <div class="form-2col">
+            <div class="form-fld"><label>Nombre de la prenda *</label><input type="text" id="adm-f-prenda" class="adm-input" placeholder="ej. vestido largo azul"/></div>
+            <div class="form-fld"><label>Material</label>
+              <select id="adm-f-material" class="adm-input">
+                <option value="">Sin especificar</option>
+                <option>Algodón</option><option>Lino</option><option>Lana</option>
+                <option>Seda</option><option>Poliéster</option><option>Nylon</option><option>Otro</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-2col">
+            <div class="form-fld"><label>Cantidad *</label><input type="number" id="adm-f-cantidad" class="adm-input" min="1" placeholder="1"/></div>
+            <div class="form-fld"><label>Precio (MXN)</label><input type="number" id="adm-f-precio" class="adm-input" placeholder="120.00" step="0.50" min="0"/></div>
+          </div>
+          <div class="form-2col">
+            <div class="form-fld"><label>Fecha de ingreso *</label><input type="date" id="adm-f-ingreso" class="adm-input"/></div>
+            <div class="form-fld"><label>Entrega estimada *</label><input type="date" id="adm-f-entrega" class="adm-input"/></div>
+          </div>
+          <div class="form-fld full-fld"><label>Instrucciones / notas</label>
+            <textarea id="adm-f-notas" class="adm-textarea" rows="3" placeholder="Manchas, cuidados especiales, condición de la prenda…"></textarea>
+          </div>
+          <div class="form-fld full-fld" id="adm-status-row" style="display:none">
+            <label>Estado del pedido</label>
+            <select id="adm-f-estado" class="adm-input">
+              <option value="pendiente">Pendiente</option>
+              <option value="en_proceso">En proceso</option>
+              <option value="planchado">Planchado</option>
+              <option value="listo">Listo para entrega</option>
+              <option value="entregado">Entregado</option>
+            </select>
+          </div>
+          <div class="form-actions-row">
+            <button class="btn-outline-dark" onclick="admNavById('adm-view-pedidos')">Cancelar</button>
+            <button class="btn-red" onclick="admSaveOrder()">💾 Guardar pedido</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="adm-view-clientes" class="adm-view">
+        <div class="adm-card">
+          <h3 style="margin-bottom:1rem">Clientes registrados</h3>
+          <div class="tbl-wrap">
+            <table class="adm-tbl">
+              <thead><tr><th>Nombre</th><th>Correo</th><th>Teléfono</th><th>Pedidos</th></tr></thead>
+              <tbody id="clientes-tbody"><tr><td colspan="4" class="t-empty">Cargando…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-overlay" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="modal-hd"><h3>Detalle del pedido</h3><button class="modal-x" onclick="closeModal()">✕</button></div>
+    <div class="modal-bd" id="modal-bd"></div>
+    <div class="modal-ft">
+      <select id="modal-st-sel" class="adm-input" style="flex:1">
+        <option value="pendiente">Pendiente</option>
+        <option value="en_proceso">En proceso</option>
+        <option value="planchado">Planchado</option>
+        <option value="listo">Listo para entrega</option>
+        <option value="entregado">Entregado</option>
+      </select>
+      <button class="btn-outline-dark" onclick="admEditFromModal()">✏ Editar</button>
+      <button class="btn-red" onclick="admUpdateStatus()">Actualizar</button>
+    </div>
+  </div>
+</div>
+
+<div id="confirm-overlay" class="modal-overlay hidden">
+  <div class="modal-box" style="max-width:360px">
+    <div class="modal-hd"><h3>¿Eliminar pedido?</h3><button class="modal-x" onclick="closeConfirm()">✕</button></div>
+    <div class="modal-bd"><p>Esta acción <strong>no se puede deshacer</strong>. ¿Confirmas?</p></div>
+    <div class="modal-ft">
+      <button class="btn-outline-dark" onclick="closeConfirm()">Cancelar</button>
+      <button class="btn-danger-red" onclick="executeDelete()">Sí, eliminar</button>
+    </div>
+  </div>
+</div>
+
+<div id="sidebar-overlay" class="sidebar-ov hidden" onclick="closeSidebar()"></div>
+<div id="toast-container"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

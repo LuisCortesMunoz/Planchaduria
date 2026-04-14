@@ -1,3 +1,6 @@
+// ================================
+// app.js
+// ================================
 const BACKEND_URL = "https://docker-planchaduria.onrender.com";
 
 const G = {
@@ -25,10 +28,15 @@ function bindModalClosers() {
     if (e.target === document.getElementById("confirm-overlay")) closeConfirm();
   });
 
+  document.getElementById("sidebar-overlay")?.addEventListener("click", () => {
+    closeSidebar();
+  });
+
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") {
       closeModal();
       closeConfirm();
+      closeSidebar();
     }
   });
 }
@@ -71,7 +79,11 @@ function goTo(screenId) {
 }
 
 async function api(path, method = "GET", body = null, withAuth = false) {
-  const headers = { "Content-Type": "application/json" };
+  const headers = {};
+
+  if (!(body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
 
   if (withAuth && G.token) {
     headers["Authorization"] = `Bearer ${G.token}`;
@@ -80,7 +92,9 @@ async function api(path, method = "GET", body = null, withAuth = false) {
   const response = await fetch(`${BACKEND_URL}${path}`, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : null
+    body: body
+      ? (body instanceof FormData ? body : JSON.stringify(body))
+      : null
   });
 
   const data = await response.json().catch(() => ({}));
@@ -114,6 +128,21 @@ function clearSession() {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
   localStorage.removeItem("isAdmin");
+}
+
+function fotoUrl(url) {
+  const value = String(url || "").trim();
+  if (!value) return "";
+
+  if (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("data:")) {
+    return value;
+  }
+
+  if (value.startsWith("/")) {
+    return `${BACKEND_URL}${value}`;
+  }
+
+  return `${BACKEND_URL}/${value}`;
 }
 
 /* =========================
@@ -236,8 +265,8 @@ function resetNuevaPrenda() {
 }
 
 function showStep(n) {
-  document.getElementById("np-step1").classList.toggle("hidden", n !== 1);
-  document.getElementById("np-step2").classList.toggle("hidden", n !== 2);
+  document.getElementById("np-step1")?.classList.toggle("hidden", n !== 1);
+  document.getElementById("np-step2")?.classList.toggle("hidden", n !== 2);
 }
 
 function selectMaterial(btn) {
@@ -269,7 +298,8 @@ function npContinuar() {
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  document.getElementById("np-entrega").min = tomorrow.toISOString().split("T")[0];
+  const el = document.getElementById("np-entrega");
+  if (el) el.min = tomorrow.toISOString().split("T")[0];
 }
 
 function npVolver() {
@@ -310,6 +340,8 @@ async function npFinalizar() {
 ========================= */
 async function loadMisPrendas() {
   const list = document.getElementById("mis-prendas-list");
+  if (!list) return;
+
   list.innerHTML = '<p class="empty-msg">Cargando…</p>';
 
   try {
@@ -322,12 +354,13 @@ async function loadMisPrendas() {
     }
 
     list.innerHTML = pedidos.map(p => {
-      const fotosHtml = (p.fotos || []).length
+      const fotos = Array.isArray(p.fotos) ? p.fotos : [];
+      const fotosHtml = fotos.length
         ? `
           <div class="pedido-fotos">
-            ${(p.fotos || []).map(f => `
+            ${fotos.map(f => `
               <div class="pedido-foto-item">
-                <img src="${BACKEND_URL}${f.url}" alt="Foto ${p.Folio}">
+                <img src="${esc(fotoUrl(f.url))}" alt="Foto ${esc(p.Folio)}">
                 <span>${esc(f.fecha_hora || "")}</span>
               </div>
             `).join("")}
@@ -365,31 +398,32 @@ async function buscarPedido() {
   const result = document.getElementById("tracking-result");
   const empty = document.getElementById("tracking-empty");
 
-  result.classList.add("hidden");
-  empty.style.display = "none";
+  result?.classList.add("hidden");
+  if (empty) empty.style.display = "none";
 
   try {
     const data = await api(`/api/orders/track/${encodeURIComponent(folio)}`);
     const p = data.order;
 
-    document.getElementById("tr-id").textContent = p.Folio || folio;
-    document.getElementById("tr-prenda").textContent = p.tipoPrenda || "—";
-    document.getElementById("tr-cliente").textContent = p.cliente || "—";
-    document.getElementById("tr-entrega").textContent = fmtDate(p.FechaEntrega);
-    document.getElementById("tr-estado").textContent = estadoLabel(p.Estado);
+    setText("tr-id", p.Folio || folio);
+    setText("tr-prenda", p.tipoPrenda || "—");
+    setText("tr-cliente", p.cliente || "—");
+    setText("tr-entrega", fmtDate(p.FechaEntrega));
+    setText("tr-estado", estadoLabel(p.Estado));
 
-    result.classList.remove("hidden");
+    result?.classList.remove("hidden");
   } catch (err) {
-    empty.style.display = "block";
-    empty.textContent = `No se encontró ningún pedido con ID ${folio}.`;
+    if (empty) {
+      empty.style.display = "block";
+      empty.textContent = `No se encontró ningún pedido con ID ${folio}.`;
+    }
   }
 }
 
-async function loadCuenta() {
+function loadCuenta() {
   if (!G.user) return;
-
-  document.getElementById("cuenta-name").textContent = G.user.nombreCompleto || G.user.email;
-  document.getElementById("cuenta-email").textContent = G.user.email;
+  setText("cuenta-name", G.user.nombreCompleto || G.user.email || "");
+  setText("cuenta-email", G.user.email || "");
 }
 
 /* =========================
@@ -402,10 +436,12 @@ function showAdmin() {
   });
 
   const adminScreen = document.getElementById("screen-admin");
-  adminScreen.style.display = "flex";
-  adminScreen.classList.add("active");
+  if (adminScreen) {
+    adminScreen.style.display = "flex";
+    adminScreen.classList.add("active");
+  }
 
-  document.getElementById("adm-user-pill").textContent = (G.user?.email || "Admin").split("@")[0];
+  setText("adm-user-pill", (G.user?.email || "Admin").split("@")[0]);
 }
 
 async function loadAdminData() {
@@ -443,7 +479,7 @@ function admNav(btn) {
     "adm-view-clientes": "Clientes"
   };
 
-  document.getElementById("adm-page-title").textContent = titles[targetId] || "";
+  setText("adm-page-title", titles[targetId] || "");
   closeSidebar();
 }
 
@@ -459,15 +495,17 @@ function updateMetrics() {
     if (cnt[o.Estado] !== undefined) cnt[o.Estado]++;
   });
 
-  document.getElementById("m-total").textContent = G.orders.length;
-  document.getElementById("m-pend").textContent = cnt.pendiente;
-  document.getElementById("m-proc").textContent = cnt.en_proceso + cnt.planchado;
-  document.getElementById("m-list").textContent = cnt.listo;
-  document.getElementById("m-ent").textContent = cnt.entregado;
+  setText("m-total", String(G.orders.length));
+  setText("m-pend", String(cnt.pendiente));
+  setText("m-proc", String(cnt.en_proceso + cnt.planchado));
+  setText("m-list", String(cnt.listo));
+  setText("m-ent", String(cnt.entregado));
 }
 
 function renderDashRecent() {
   const tbody = document.getElementById("dash-tbody");
+  if (!tbody) return;
+
   const list = G.orders.slice(0, 6);
 
   if (!list.length) {
@@ -510,6 +548,7 @@ function applyFilters() {
 
 function renderPedidosTable() {
   const tbody = document.getElementById("pedidos-tbody");
+  if (!tbody) return;
 
   if (!G.filtered.length) {
     tbody.innerHTML = '<tr><td colspan="9" class="t-empty">No hay pedidos que coincidan.</td></tr>';
@@ -538,14 +577,15 @@ function renderPedidosTable() {
 }
 
 function admOpenNew() {
-  ["adm-f-cliente","adm-f-telefono","adm-f-prenda","adm-f-cantidad","adm-f-precio","adm-f-notas"].forEach(id => setVal(id, ""));
+  ["adm-f-cliente", "adm-f-telefono", "adm-f-prenda", "adm-f-cantidad", "adm-f-precio", "adm-f-notas"].forEach(id => setVal(id, ""));
   setVal("adm-edit-id", "");
   setVal("adm-f-material", "");
   setVal("adm-f-ingreso", today());
   setVal("adm-f-entrega", "");
   setVal("adm-f-estado", "pendiente");
-  document.getElementById("adm-form-title").textContent = "Registrar nuevo pedido";
-  document.getElementById("adm-status-row").style.display = "none";
+  setText("adm-form-title", "Registrar nuevo pedido");
+  const row = document.getElementById("adm-status-row");
+  if (row) row.style.display = "none";
 }
 
 function admOpenEdit(id) {
@@ -564,8 +604,9 @@ function admOpenEdit(id) {
   setVal("adm-f-notas", o.notas || "");
   setVal("adm-f-estado", o.Estado || "pendiente");
 
-  document.getElementById("adm-form-title").textContent = "Editar pedido";
-  document.getElementById("adm-status-row").style.display = "block";
+  setText("adm-form-title", "Editar pedido");
+  const row = document.getElementById("adm-status-row");
+  if (row) row.style.display = "block";
 
   closeModal();
   admNavById("adm-view-nuevo");
@@ -640,7 +681,24 @@ function openModal(id) {
 
   G.currentId = id;
 
-  document.getElementById("modal-bd").innerHTML = `
+  const fotos = Array.isArray(o.fotos) ? o.fotos : [];
+  const fotosHtml = fotos.length
+    ? `
+      <div class="pedido-fotos" style="margin-top:16px;">
+        ${fotos.map(f => `
+          <div class="pedido-foto-item">
+            <img src="${esc(fotoUrl(f.url))}" alt="Foto ${esc(o.Folio)}">
+            <span>${esc(f.fecha_hora || "")}</span>
+          </div>
+        `).join("")}
+      </div>
+    `
+    : `<p class="sin-fotos" style="margin-top:16px;">Aún no hay fotos para este pedido.</p>`;
+
+  const modal = document.getElementById("modal-bd");
+  if (!modal) return;
+
+  modal.innerHTML = `
     <div class="det-grid">
       <div class="det-item"><span class="det-lbl">Folio</span><span class="det-val">${esc(o.Folio || "—")}</span></div>
       <div class="det-item"><span class="det-lbl">Estado</span><span class="det-val">${badgeHtml(o.Estado)}</span></div>
@@ -655,22 +713,28 @@ function openModal(id) {
       <div class="det-item"><span class="det-lbl">Ingreso</span><span class="det-val">${fmtDate(o.fechaIngreso)}</span></div>
       <div class="det-item"><span class="det-lbl">Entrega est.</span><span class="det-val">${fmtDate(o.FechaEntrega)}</span></div>
       ${o.notas ? `<div class="det-item full"><span class="det-lbl">Notas</span><span class="det-val">${esc(o.notas)}</span></div>` : ""}
+      <div class="det-item full">
+        <span class="det-lbl">Fotos</span>
+        <div class="det-val">${fotosHtml}</div>
+      </div>
     </div>
   `;
 
-  document.getElementById("modal-st-sel").value = o.Estado || "pendiente";
-  document.getElementById("modal-overlay").classList.remove("hidden");
+  const st = document.getElementById("modal-st-sel");
+  if (st) st.value = o.Estado || "pendiente";
+
+  document.getElementById("modal-overlay")?.classList.remove("hidden");
 }
 
 function closeModal() {
-  document.getElementById("modal-overlay").classList.add("hidden");
+  document.getElementById("modal-overlay")?.classList.add("hidden");
   G.currentId = null;
 }
 
 async function admUpdateStatus() {
   if (!G.currentId) return;
 
-  const newEstado = document.getElementById("modal-st-sel").value;
+  const newEstado = document.getElementById("modal-st-sel")?.value || "pendiente";
 
   try {
     await api(`/api/admin/orders/${G.currentId}`, "PATCH", {
@@ -691,11 +755,11 @@ function admEditFromModal() {
 
 function confirmDelete(id) {
   G.delId = id;
-  document.getElementById("confirm-overlay").classList.remove("hidden");
+  document.getElementById("confirm-overlay")?.classList.remove("hidden");
 }
 
 function closeConfirm() {
-  document.getElementById("confirm-overlay").classList.add("hidden");
+  document.getElementById("confirm-overlay")?.classList.add("hidden");
   G.delId = null;
 }
 
@@ -738,6 +802,8 @@ function renderClientes(clients) {
 function toggleSidebar() {
   const s = document.getElementById("adm-sidebar");
   const ov = document.getElementById("sidebar-overlay");
+  if (!s || !ov) return;
+
   s.classList.toggle("open");
   ov.classList.toggle("hidden", !s.classList.contains("open"));
 }
@@ -767,34 +833,23 @@ function estadoLabel(Estado) {
     pendiente: "Pendiente",
     en_proceso: "En proceso",
     planchado: "Planchado",
-    listo: "Listo para entrega",
+    listo: "Listo",
     entregado: "Entregado"
   };
   return labels[Estado] || Estado || "—";
 }
 
-function fmtDate(iso) {
-  if (!iso) return "—";
-  const [y, m, d] = String(iso).split("-");
-  const meses = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
-  return `${parseInt(d)} ${meses[parseInt(m) - 1]} ${y}`;
-}
-
-function today() {
-  return new Date().toISOString().split("T")[0];
-}
-
-function esc(s) {
-  return String(s || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+function esc(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 function val(id) {
-  const el = document.getElementById(id);
-  return el ? el.value : "";
+  return document.getElementById(id)?.value || "";
 }
 
 function setVal(id, value) {
@@ -802,25 +857,78 @@ function setVal(id, value) {
   if (el) el.value = value;
 }
 
-function togglePass(inputId, btn) {
-  const inp = document.getElementById(inputId);
-  if (!inp) return;
-
-  if (inp.type === "password") {
-    inp.type = "text";
-    btn.textContent = "🙈";
-  } else {
-    inp.type = "password";
-    btn.textContent = "👁";
-  }
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
 }
 
-function toast(msg, type = "info") {
-  const icons = { success: "✅", error: "❌", info: "ℹ️" };
-  const container = document.getElementById("toast-container");
-  const el = document.createElement("div");
-  el.className = `toast ${type}`;
-  el.innerHTML = `<span>${icons[type]}</span><span>${esc(msg)}</span>`;
-  container.appendChild(el);
-  setTimeout(() => el.remove(), 4300);
+function today() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function fmtDate(value) {
+  if (!value) return "—";
+
+  if (String(value).includes("T")) {
+    const d1 = new Date(value);
+    if (!isNaN(d1.getTime())) {
+      return d1.toLocaleDateString("es-MX", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      });
+    }
+  }
+
+  const d2 = new Date(`${value}T00:00:00`);
+  if (isNaN(d2.getTime())) return value;
+
+  return d2.toLocaleDateString("es-MX", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  });
+}
+
+function toast(message, type = "info") {
+  let wrap = document.getElementById("toast-wrap");
+
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.id = "toast-wrap";
+    wrap.style.position = "fixed";
+    wrap.style.top = "16px";
+    wrap.style.right = "16px";
+    wrap.style.zIndex = "9999";
+    wrap.style.display = "flex";
+    wrap.style.flexDirection = "column";
+    wrap.style.gap = "10px";
+    document.body.appendChild(wrap);
+  }
+
+  const item = document.createElement("div");
+  item.textContent = message;
+  item.style.padding = "12px 16px";
+  item.style.borderRadius = "12px";
+  item.style.color = "#fff";
+  item.style.fontWeight = "600";
+  item.style.boxShadow = "0 10px 25px rgba(0,0,0,.18)";
+  item.style.maxWidth = "320px";
+  item.style.wordBreak = "break-word";
+  item.style.background =
+    type === "success" ? "#0f9d58" :
+    type === "error" ? "#d93025" :
+    "#3c4043";
+
+  wrap.appendChild(item);
+
+  setTimeout(() => {
+    item.style.opacity = "0";
+    item.style.transform = "translateY(-6px)";
+    item.style.transition = "all .25s ease";
+  }, 2800);
+
+  setTimeout(() => {
+    item.remove();
+  }, 3200);
 }

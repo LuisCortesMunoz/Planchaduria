@@ -476,6 +476,22 @@ button, input, select, textarea {
   font-family: 'Nunito', sans-serif;
 }
 
+.menu-policy-link {
+  background: none;
+  border: none;
+  color: var(--gray);
+  font-size: .82rem;
+  margin-top: .5rem;
+  margin-bottom: 1.4rem;
+  align-self: center;
+  text-decoration: underline;
+  font-family: 'Nunito', sans-serif;
+}
+
+.menu-policy-link:hover {
+  color: var(--dark);
+}
+
 /* ══════════════════════════════════════════════
    MENÚ CLIENTE
 ══════════════════════════════════════════════ */
@@ -535,13 +551,6 @@ button, input, select, textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.menu-note {
-  font-size: .75rem;
-  color: var(--gray);
-  text-align: center;
-  margin: .25rem 0;
 }
 
 /* ══════════════════════════════════════════════

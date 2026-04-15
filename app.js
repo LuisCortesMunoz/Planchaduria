@@ -16,6 +16,7 @@ const G = {
 
 document.addEventListener("DOMContentLoaded", async () => {
   bindModalClosers();
+  createPhotoViewer();
   initResponsive();
   await restoreSession();
 });
@@ -33,11 +34,31 @@ function bindModalClosers() {
     closeSidebar();
   });
 
+  document.addEventListener("click", e => {
+    const img = e.target.closest(".clickable-photo");
+    if (img) {
+      openImageViewer(
+        img.getAttribute("data-fullsrc") || img.getAttribute("src") || "",
+        img.getAttribute("alt") || "Foto"
+      );
+    }
+
+    const overlay = e.target.closest("#photo-viewer-overlay");
+    if (overlay && e.target.id === "photo-viewer-overlay") {
+      closeImageViewer();
+    }
+
+    if (e.target.closest("#photo-viewer-close")) {
+      closeImageViewer();
+    }
+  });
+
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") {
       closeModal();
       closeConfirm();
       closeSidebar();
+      closeImageViewer();
     }
   });
 }
@@ -359,12 +380,22 @@ async function loadMisPrendas() {
       const fotosHtml = fotos.length
         ? `
           <div class="pedido-fotos">
-            ${fotos.map(f => `
-              <div class="pedido-foto-item">
-                <img src="${fotoUrl(f.url)}" alt="Foto ${esc(p.Folio)}" loading="lazy" referrerpolicy="no-referrer">
-                <span>${esc(f.fecha_hora || "")}</span>
-              </div>
-            `).join("")}
+            ${fotos.map(f => {
+              const fullSrc = fotoUrl(f.url);
+              return `
+                <div class="pedido-foto-item">
+                  <img
+                    src="${fullSrc}"
+                    data-fullsrc="${fullSrc}"
+                    class="clickable-photo"
+                    alt="Foto ${esc(p.Folio)}"
+                    loading="lazy"
+                    referrerpolicy="no-referrer"
+                  >
+                  <span>${esc(f.fecha_hora || "")}</span>
+                </div>
+              `;
+            }).join("")}
           </div>
         `
         : `<p class="sin-fotos">Aún no hay fotos para este pedido.</p>`;
@@ -482,7 +513,7 @@ function admNav(btn) {
 
   setText("adm-page-title", titles[targetId] || "");
 
-  if (window.innerWidth < 768) {
+  if (window.innerWidth < 900) {
     closeSidebar();
   }
 }
@@ -689,12 +720,22 @@ function openModal(id) {
   const fotosHtml = fotos.length
     ? `
       <div class="pedido-fotos" style="margin-top:16px;">
-        ${fotos.map(f => `
-          <div class="pedido-foto-item">
-            <img src="${fotoUrl(f.url)}" alt="Foto ${esc(o.Folio)}" loading="lazy" referrerpolicy="no-referrer">
-            <span>${esc(f.fecha_hora || "")}</span>
-          </div>
-        `).join("")}
+        ${fotos.map(f => {
+          const fullSrc = fotoUrl(f.url);
+          return `
+            <div class="pedido-foto-item">
+              <img
+                src="${fullSrc}"
+                data-fullsrc="${fullSrc}"
+                class="clickable-photo"
+                alt="Foto ${esc(o.Folio)}"
+                loading="lazy"
+                referrerpolicy="no-referrer"
+              >
+              <span>${esc(f.fecha_hora || "")}</span>
+            </div>
+          `;
+        }).join("")}
       </div>
     `
     : `<p class="sin-fotos" style="margin-top:16px;">Aún no hay fotos para este pedido.</p>`;
@@ -828,12 +869,15 @@ function closeSidebar() {
 ========================= */
 function initResponsive() {
   window.addEventListener("resize", handleResize);
+  window.addEventListener("orientationchange", handleResize);
+
   handleResize();
   enableTableScroll();
+  updateViewportClasses();
 
   document.querySelectorAll(".adm-nav-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-      if (window.innerWidth < 768) {
+      if (window.innerWidth < 900) {
         closeSidebar();
       }
     });
@@ -841,16 +885,34 @@ function initResponsive() {
 }
 
 function handleResize() {
-  const isMobile = window.innerWidth < 768;
-
   const sidebar = document.getElementById("adm-sidebar");
   const overlay = document.getElementById("sidebar-overlay");
 
+  updateViewportClasses();
+  enableTableScroll();
+
   if (!sidebar || !overlay) return;
 
-  if (!isMobile) {
+  if (window.innerWidth >= 900) {
     sidebar.classList.remove("open");
     overlay.classList.add("hidden");
+  }
+}
+
+function updateViewportClasses() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+
+  document.body.classList.remove("ui-mobile-small", "ui-mobile-large", "ui-tablet", "ui-desktop");
+
+  if (w <= 480) {
+    document.body.classList.add("ui-mobile-small");
+  } else if (w <= 900 && h <= 1000) {
+    document.body.classList.add("ui-mobile-large");
+  } else if (w <= 1200) {
+    document.body.classList.add("ui-tablet");
+  } else {
+    document.body.classList.add("ui-desktop");
   }
 }
 
@@ -859,6 +921,48 @@ function enableTableScroll() {
     wrap.style.overflowX = "auto";
     wrap.style.webkitOverflowScrolling = "touch";
   });
+}
+
+/* =========================
+   PHOTO VIEWER
+========================= */
+function createPhotoViewer() {
+  if (document.getElementById("photo-viewer-overlay")) return;
+
+  const overlay = document.createElement("div");
+  overlay.id = "photo-viewer-overlay";
+  overlay.className = "photo-viewer-overlay hidden";
+  overlay.innerHTML = `
+    <div class="photo-viewer-box">
+      <button id="photo-viewer-close" class="photo-viewer-close" aria-label="Cerrar imagen">✕</button>
+      <img id="photo-viewer-img" class="photo-viewer-img" src="" alt="Foto completa">
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+}
+
+function openImageViewer(src, alt = "Foto completa") {
+  const overlay = document.getElementById("photo-viewer-overlay");
+  const img = document.getElementById("photo-viewer-img");
+
+  if (!overlay || !img || !src) return;
+
+  img.src = src;
+  img.alt = alt;
+  overlay.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
+
+function closeImageViewer() {
+  const overlay = document.getElementById("photo-viewer-overlay");
+  const img = document.getElementById("photo-viewer-img");
+
+  if (!overlay || !img) return;
+
+  overlay.classList.add("hidden");
+  img.src = "";
+  document.body.style.overflow = "";
 }
 
 /* =========================

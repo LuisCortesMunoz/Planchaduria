@@ -132,7 +132,6 @@ function clearSession() {
 
 function fotoUrl(url) {
   const value = String(url || "").trim();
-
   if (!value) return "";
 
   if (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("data:")) {
@@ -361,7 +360,7 @@ async function loadMisPrendas() {
           <div class="pedido-fotos">
             ${fotos.map(f => `
               <div class="pedido-foto-item">
-                <img src="${fotoUrl(f.url)}" alt="Foto ${esc(p.Folio)}">
+                <img src="${fotoUrl(f.url)}" alt="Foto ${esc(p.Folio)}" loading="lazy" referrerpolicy="no-referrer">
                 <span>${esc(f.fecha_hora || "")}</span>
               </div>
             `).join("")}
@@ -688,7 +687,7 @@ function openModal(id) {
       <div class="pedido-fotos" style="margin-top:16px;">
         ${fotos.map(f => `
           <div class="pedido-foto-item">
-            <img src="${fotoUrl(f.url)}" alt="Foto ${esc(o.Folio)}">
+            <img src="${fotoUrl(f.url)}" alt="Foto ${esc(o.Folio)}" loading="lazy" referrerpolicy="no-referrer">
             <span>${esc(f.fecha_hora || "")}</span>
           </div>
         `).join("")}

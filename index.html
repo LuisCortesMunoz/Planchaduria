@@ -124,10 +124,12 @@
         <circle cx="28" cy="8" r="3" fill="#e63329"/>
       </svg>
     </div>
+
     <div class="menu-welcome">
       <p class="welcome-text">Bienvenido a</p>
       <h1 class="welcome-brand">PLANCHADO EXPRESS</h1>
     </div>
+
     <div class="menu-grid">
       <button class="menu-tile" onclick="goTo('screen-mis-prendas');loadMisPrendas()">
         <div class="tile-icon">
@@ -162,19 +164,14 @@
         </div>
         <span>Cuenta</span>
       </button>
-
-      <button class="menu-tile" onclick="goTo('screen-politicas')">
-        <div class="tile-icon">
-          <svg viewBox="0 0 48 48" fill="none" width="40" height="40">
-            <rect x="10" y="8" width="28" height="34" rx="3" stroke="#e63329" stroke-width="2.5"/>
-            <path d="M16 18h16M16 25h16M16 32h10" stroke="#e63329" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <span>Política</span>
-      </button>
     </div>
+
     <button class="btn-dark full" onclick="goTo('screen-nueva-prenda');resetNuevaPrenda()">Nueva Prenda</button>
-    <p class="menu-note">Registra una nueva prenda para planchado</p>
+
+    <button class="menu-policy-link" onclick="goTo('screen-politicas')">
+      Consulta aquí nuestras políticas del servicio
+    </button>
+
     <button class="logout-link-btn" onclick="clientLogout()">Cerrar sesión</button>
   </div>
 </div>

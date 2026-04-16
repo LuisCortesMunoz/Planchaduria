@@ -357,19 +357,18 @@ function npContinuar() {
 
   const hoy = new Date();
 
-  // mínimo: mañana
   const minFecha = new Date();
   minFecha.setDate(hoy.getDate() + 1);
-  
-  // máximo: último día del mes siguiente
+
   const maxFecha = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0);
-  
+
   const el = document.getElementById("np-entrega");
-  
+
   if (el) {
     el.min = minFecha.toISOString().split("T")[0];
     el.max = maxFecha.toISOString().split("T")[0];
   }
+}
 
 function npVolver() {
   showStep(1);
@@ -384,6 +383,27 @@ async function npFinalizar() {
   const fechaEntrega = val("np-entrega");
   if (!fechaEntrega) {
     toast("Selecciona la fecha de entrega.", "error");
+    return;
+  }
+
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  const minFecha = new Date(hoy);
+  minFecha.setDate(minFecha.getDate() + 1);
+
+  const maxFecha = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0);
+  maxFecha.setHours(0, 0, 0, 0);
+
+  const fechaSeleccionada = new Date(`${fechaEntrega}T00:00:00`);
+
+  if (fechaSeleccionada < minFecha) {
+    toast("La fecha de entrega debe ser a partir de mañana.", "error");
+    return;
+  }
+
+  if (fechaSeleccionada > maxFecha) {
+    toast("Solo puedes elegir fechas dentro del mes actual y el siguiente.", "error");
     return;
   }
 

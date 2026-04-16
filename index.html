@@ -130,6 +130,10 @@
       <h1 class="welcome-brand">PLANCHADO EXPRESS</h1>
     </div>
 
+    <button class="btn-red menu-register-btn full" onclick="goTo('screen-nueva-prenda');resetNuevaPrenda()">
+      Registrar nueva prenda
+    </button>
+    
     <div class="menu-grid">
       <button class="menu-tile" onclick="goTo('screen-mis-prendas');loadMisPrendas()">
         <div class="tile-icon">
@@ -143,7 +147,7 @@
         </div>
         <span>Prendas Registradas</span>
       </button>
-
+    
       <button class="menu-tile" onclick="goTo('screen-cuenta-cliente');loadCuenta()">
         <div class="tile-icon">
           <svg viewBox="0 0 48 48" fill="none" width="40" height="40">
@@ -154,6 +158,17 @@
         <span>Cuenta</span>
       </button>
     </div>
+    
+          <button class="menu-tile" onclick="goTo('screen-cuenta-cliente');loadCuenta()">
+            <div class="tile-icon">
+              <svg viewBox="0 0 48 48" fill="none" width="40" height="40">
+                <circle cx="24" cy="18" r="8" stroke="#e63329" stroke-width="2.5"/>
+                <path d="M8 40c0-8.837 7.163-16 16-16s16 7.163 16 16" stroke="#e63329" stroke-width="2.5" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <span>Cuenta</span>
+          </button>
+        </div>
 
     <button class="btn-red menu-register-btn full" onclick="goTo('screen-nueva-prenda');resetNuevaPrenda()">
       Registrar nueva prenda

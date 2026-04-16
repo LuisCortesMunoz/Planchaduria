@@ -488,22 +488,6 @@ button, input, select, textarea {
   font-family: 'Nunito', sans-serif;
 }
 
-.menu-status-link {
-  background: none;
-  border: none;
-  color: var(--gray);
-  font-size: .82rem;
-  margin-top: .5rem;
-  margin-bottom: .35rem;
-  align-self: center;
-  text-decoration: underline;
-  font-family: 'Nunito', sans-serif;
-}
-
-.menu-status-link:hover {
-  color: var(--dark);
-}
-
 .menu-policy-link:hover {
   color: var(--dark);
 }
@@ -511,43 +495,6 @@ button, input, select, textarea {
 /* ══════════════════════════════════════════════
    MENÚ CLIENTE
 ══════════════════════════════════════════════ */
-.menu-tile-stack {
-  padding: 1rem .85rem;
-  justify-content: space-between;
-  gap: .75rem;
-}
-
-.menu-main-btn {
-  background: none;
-  border: none;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: .6rem;
-  color: var(--dark);
-  font-family: 'Nunito', sans-serif;
-  font-weight: 700;
-  font-size: .82rem;
-  text-align: center;
-  flex: 1;
-}
-
-.menu-inline-link {
-  background: none;
-  border: none;
-  color: var(--gray);
-  font-size: .78rem;
-  text-decoration: underline;
-  font-family: 'Nunito', sans-serif;
-  align-self: center;
-}
-
-.menu-inline-link:hover {
-  color: var(--dark);
-}
-
 .menu-welcome {
   text-align: center;
   margin: .75rem 0 1.25rem;
@@ -690,6 +637,22 @@ button, input, select, textarea {
 /* ══════════════════════════════════════════════
    MIS PRENDAS
 ══════════════════════════════════════════════ */
+.mis-prendas-status-link {
+  background: none;
+  border: none;
+  color: var(--gray);
+  font-size: .82rem;
+  margin: 1rem auto 0;
+  align-self: center;
+  text-decoration: underline;
+  font-family: 'Nunito', sans-serif;
+  display: block;
+}
+
+.mis-prendas-status-link:hover {
+  color: var(--dark);
+}
+
 .prenda-item {
   background: var(--surface);
   border-radius: var(--r-md);
@@ -1850,7 +1813,6 @@ button, input, select, textarea {
   }
 }
 
-/* Celulares grandes */
 @media (min-width: 481px) and (max-width: 900px) {
   body.ui-mobile-large .phone-wrap {
     max-width: 640px;

@@ -26,23 +26,6 @@ function bindModalClosers() {
   document.getElementById("modal-overlay")?.addEventListener("click", e => {
     if (e.target === document.getElementById("modal-overlay")) closeModal();
   });
-function bindPasswordToggles() {
-  document.querySelectorAll("[data-toggle-pass]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const inputId = btn.getAttribute("data-toggle-pass");
-      const input = document.getElementById(inputId);
-      if (!input) return;
-
-      if (input.type === "password") {
-        input.type = "text";
-        btn.textContent = "🙈";
-      } else {
-        input.type = "password";
-        btn.textContent = "👁";
-      }
-    });
-  });
-}
 
   document.getElementById("confirm-overlay")?.addEventListener("click", e => {
     if (e.target === document.getElementById("confirm-overlay")) closeConfirm();
@@ -81,6 +64,24 @@ function bindPasswordToggles() {
   });
 }
 
+function bindPasswordToggles() {
+  document.querySelectorAll("[data-toggle-pass]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const inputId = btn.getAttribute("data-toggle-pass");
+      const input = document.getElementById(inputId);
+      if (!input) return;
+
+      if (input.type === "password") {
+        input.type = "text";
+        btn.textContent = "🙈";
+      } else {
+        input.type = "password";
+        btn.textContent = "👁";
+      }
+    });
+  });
+}
+
 async function restoreSession() {
   if (!G.token) {
     goTo("screen-splash");
@@ -113,25 +114,6 @@ function goTo(screenId) {
     s.classList.remove("active");
     s.style.display = "";
   });
-
-  const target = document.getElementById(screenId);
-  if (target) target.classList.add("active");
-}
-
-window.togglePass = function (inputId, btn) {
-  const input = document.getElementById(inputId);
-  if (!input) return;
-
-  if (input.type === "password") {
-    input.type = "text";
-    if (btn) btn.textContent = "🙈";
-  } else {
-    input.type = "password";
-    if (btn) btn.textContent = "👁";
-  }
-};
-
-async function api(path, method = "GET", body = null, withAuth = false) {
 
   const target = document.getElementById(screenId);
   if (target) target.classList.add("active");

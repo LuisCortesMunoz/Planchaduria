@@ -144,17 +144,6 @@
         <span>Prendas Registradas</span>
       </button>
 
-      <button class="menu-tile" onclick="goTo('screen-estado-prenda')">
-        <div class="tile-icon">
-          <svg viewBox="0 0 48 48" fill="none" width="40" height="40">
-            <circle cx="24" cy="26" r="14" stroke="#e63329" stroke-width="2.5"/>
-            <path d="M24 18v8l5 3" stroke="#e63329" stroke-width="2.5" stroke-linecap="round"/>
-            <path d="M17 8l-3-3M31 8l3-3" stroke="#e63329" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <span>Estado de Prenda</span>
-      </button>
-
       <button class="menu-tile" onclick="goTo('screen-cuenta-cliente');loadCuenta()">
         <div class="tile-icon">
           <svg viewBox="0 0 48 48" fill="none" width="40" height="40">
@@ -167,6 +156,10 @@
     </div>
 
     <button class="btn-dark full" onclick="goTo('screen-nueva-prenda');resetNuevaPrenda()">Nueva Prenda</button>
+
+    <button class="menu-status-link" onclick="goTo('screen-estado-prenda')">
+      Consulta aquí el estado de tu prenda
+    </button>
 
     <button class="menu-policy-link" onclick="goTo('screen-politicas')">
       Consulta aquí nuestras políticas del servicio

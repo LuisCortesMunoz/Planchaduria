@@ -355,11 +355,21 @@ function npContinuar() {
 
   showStep(2);
 
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  const hoy = new Date();
+
+  // mínimo: mañana
+  const minFecha = new Date();
+  minFecha.setDate(hoy.getDate() + 1);
+  
+  // máximo: último día del mes siguiente
+  const maxFecha = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0);
+  
   const el = document.getElementById("np-entrega");
-  if (el) el.min = tomorrow.toISOString().split("T")[0];
-}
+  
+  if (el) {
+    el.min = minFecha.toISOString().split("T")[0];
+    el.max = maxFecha.toISOString().split("T")[0];
+  }
 
 function npVolver() {
   showStep(1);

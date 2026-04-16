@@ -131,24 +131,18 @@
     </div>
 
     <div class="menu-grid">
-      <div class="menu-tile menu-tile-stack">
-        <button class="menu-main-btn" onclick="goTo('screen-mis-prendas');loadMisPrendas()">
-          <div class="tile-icon">
-            <svg viewBox="0 0 48 48" fill="none" width="40" height="40">
-              <rect x="8" y="14" width="32" height="26" rx="4" stroke="#e63329" stroke-width="2.5"/>
-              <path d="M16 14V12a8 8 0 0116 0v2" stroke="#e63329" stroke-width="2.5"/>
-              <path d="M14 24h20M14 32h12" stroke="#e63329" stroke-width="2" stroke-linecap="round"/>
-              <circle cx="36" cy="36" r="7" fill="#e63329"/>
-              <path d="M33 36l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-          </div>
-          <span>Prendas Registradas</span>
-        </button>
-      
-        <button class="menu-inline-link" onclick="goTo('screen-estado-prenda')">
-          Consulta aquí el estado de tu prenda
-        </button>
-      </div>
+      <button class="menu-tile" onclick="goTo('screen-mis-prendas');loadMisPrendas()">
+        <div class="tile-icon">
+          <svg viewBox="0 0 48 48" fill="none" width="40" height="40">
+            <rect x="8" y="14" width="32" height="26" rx="4" stroke="#e63329" stroke-width="2.5"/>
+            <path d="M16 14V12a8 8 0 0116 0v2" stroke="#e63329" stroke-width="2.5"/>
+            <path d="M14 24h20M14 32h12" stroke="#e63329" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="36" cy="36" r="7" fill="#e63329"/>
+            <path d="M33 36l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span>Prendas Registradas</span>
+      </button>
 
       <button class="menu-tile" onclick="goTo('screen-cuenta-cliente');loadCuenta()">
         <div class="tile-icon">
@@ -163,10 +157,10 @@
 
     <button class="btn-dark full" onclick="goTo('screen-nueva-prenda');resetNuevaPrenda()">Nueva Prenda</button>
 
-    <button class="menu-status-link" onclick="goTo('screen-estado-prenda')">
-      Consulta aquí el estado de tu prenda
+    <button class="menu-policy-link" onclick="goTo('screen-politicas')">
+      Consulta aquí nuestras políticas del servicio
     </button>
-    
+
     <button class="logout-link-btn" onclick="clientLogout()">Cerrar sesión</button>
   </div>
 </div>
@@ -175,7 +169,7 @@
 <div id="screen-estado-prenda" class="screen">
   <div class="phone-wrap">
     <div class="topbar-sm">
-      <button class="back-btn" onclick="goTo('screen-menu-client')">←</button>
+      <button class="back-btn" onclick="goTo('screen-mis-prendas');loadMisPrendas()">←</button>
       <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
         <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
         <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
@@ -212,6 +206,7 @@
         <p class="estado-big" id="tr-estado">—</p>
       </div>
     </div>
+
     <p id="tracking-empty" class="empty-msg">Ingresa tu ID para ver el estado de tu prenda.</p>
   </div>
 </div>
@@ -228,10 +223,16 @@
         <circle cx="28" cy="8" r="3" fill="#e63329"/>
       </svg>
     </div>
+
     <h2 class="screen-title">HISTORIAL DE PRENDAS</h2>
+
     <div id="mis-prendas-list">
       <p class="empty-msg">Cargando tus prendas…</p>
     </div>
+
+    <button class="mis-prendas-status-link" onclick="goTo('screen-estado-prenda')">
+      Consulta aquí el estado de tu prenda
+    </button>
   </div>
 </div>
 

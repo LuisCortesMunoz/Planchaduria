@@ -489,8 +489,10 @@ button, input, select, textarea {
 }
 
 .menu-register-btn {
-  margin-top: .25rem;
-  margin-bottom: .6rem;
+  margin-top: .5rem;
+  margin-bottom: 1.2rem;
+  font-size: 1.1rem;
+  font-weight: 800;
 }
 
 .menu-policy-link:hover {

@@ -222,8 +222,26 @@ async function registerClient() {
   const telefono = val("reg-phone").trim();
   const password = val("reg-pass");
 
+  const soloLetras = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s]+$/;
+  const soloNumeros = /^\d+$/;
+
   if (!nombre || !apellido || !email || !password) {
     toast("Completa todos los campos obligatorios.", "error");
+    return;
+  }
+
+  if (nombre.length < 1 || !soloLetras.test(nombre)) {
+    toast("El nombre debe contener al menos un carácter válido.", "error");
+    return;
+  }
+
+  if (apellido.length < 1 || !soloLetras.test(apellido)) {
+    toast("El apellido debe contener al menos un carácter válido.", "error");
+    return;
+  }
+
+  if (telefono && !soloNumeros.test(telefono)) {
+    toast("El teléfono debe contener solo números.", "error");
     return;
   }
 

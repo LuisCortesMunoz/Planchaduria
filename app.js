@@ -16,6 +16,7 @@ const G = {
 
 document.addEventListener("DOMContentLoaded", async () => {
   bindModalClosers();
+  bindPasswordToggles();
   createPhotoViewer();
   initResponsive();
   await restoreSession();

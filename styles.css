@@ -488,6 +488,22 @@ button, input, select, textarea {
   font-family: 'Nunito', sans-serif;
 }
 
+.menu-status-link {
+  background: none;
+  border: none;
+  color: var(--gray);
+  font-size: .82rem;
+  margin-top: .5rem;
+  margin-bottom: .35rem;
+  align-self: center;
+  text-decoration: underline;
+  font-family: 'Nunito', sans-serif;
+}
+
+.menu-status-link:hover {
+  color: var(--dark);
+}
+
 .menu-policy-link:hover {
   color: var(--dark);
 }

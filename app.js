@@ -96,7 +96,11 @@ function goTo(screenId) {
     s.style.display = "";
   });
 
-function togglePass(inputId, btn) {
+  const target = document.getElementById(screenId);
+  if (target) target.classList.add("active");
+}
+
+window.togglePass = function (inputId, btn) {
   const input = document.getElementById(inputId);
   if (!input) return;
 
@@ -107,7 +111,9 @@ function togglePass(inputId, btn) {
     input.type = "password";
     if (btn) btn.textContent = "👁";
   }
-}
+};
+
+async function api(path, method = "GET", body = null, withAuth = false) {
 
   const target = document.getElementById(screenId);
   if (target) target.classList.add("active");

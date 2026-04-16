@@ -96,6 +96,19 @@ function goTo(screenId) {
     s.style.display = "";
   });
 
+function togglePass(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+
+  if (input.type === "password") {
+    input.type = "text";
+    if (btn) btn.textContent = "🙈";
+  } else {
+    input.type = "password";
+    if (btn) btn.textContent = "👁";
+  }
+}
+
   const target = document.getElementById(screenId);
   if (target) target.classList.add("active");
 }

@@ -488,6 +488,11 @@ button, input, select, textarea {
   font-family: 'Nunito', sans-serif;
 }
 
+.menu-register-btn {
+  margin-top: .25rem;
+  margin-bottom: .6rem;
+}
+
 .menu-policy-link:hover {
   color: var(--dark);
 }

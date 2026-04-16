@@ -73,7 +73,7 @@
       </div>
       <div class="input-row">
         <input type="password" id="cl-pass" placeholder="Contraseña" class="field"/>
-        <button type="button" class="eye-btn" onclick="togglePass('cl-pass',this)">👁</button>
+        <button type="button" class="eye-btn" data-toggle-pass="cl-pass">👁</button>
       </div>
       <button class="btn-dark full" onclick="loginClient()">Iniciar Sesión</button>
       <p class="form-hint">¿No tienes cuenta? <span class="link-span" onclick="goTo('screen-register')">Regístrate</span></p>
@@ -105,7 +105,7 @@
       </div>
       <div class="input-row">
         <input type="password" id="reg-pass" placeholder="Contraseña" class="field"/>
-        <button type="button" class="eye-btn" onclick="togglePass('reg-pass',this)">👁</button>
+        <button type="button" class="eye-btn" data-toggle-pass="reg-pass">👁</button>
       </div>
       <button class="btn-dark full" onclick="registerClient()">Crear Cuenta</button>
       <p class="form-hint">¿Ya tienes cuenta? <span class="link-span" onclick="goTo('screen-login-client')">Inicia sesión</span></p>
@@ -352,7 +352,7 @@
       <label class="field-lbl light" style="margin-top:.75rem">Contraseña</label>
       <div class="input-row">
         <input type="password" id="adm-pass" placeholder="••••••••" class="field admin-field"/>
-        <button type="button" class="eye-btn light" onclick="togglePass('adm-pass',this)">👁</button>
+        <button type="button" class="eye-btn light" data-toggle-pass="adm-pass">👁</button>
       </div>
       <button class="btn-red full" style="margin-top:1.25rem" onclick="loginAdmin()">Entrar al panel</button>
     </div>

@@ -1966,3 +1966,123 @@ button, input, select, textarea {
     border-radius: 18px;
   }
 }
+
+/* =====================
+   MODAL CONFIRMACIÓN PEDIDO
+===================== */
+.conf-modal-box {
+  max-width: 360px;
+}
+
+.conf-modal-hd h3 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.2rem;
+  color: #1a1a1a;
+}
+
+.conf-folio-wrap {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin-bottom: 1.1rem;
+}
+
+.conf-folio-lbl {
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--gray);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.conf-folio-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.5rem;
+  color: var(--red);
+  letter-spacing: .04em;
+}
+
+.conf-qr-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .5rem;
+  margin-bottom: 1.1rem;
+  padding: .9rem;
+  background: #f9f9f9;
+  border-radius: var(--r-lg);
+}
+
+.conf-qr-wrap canvas {
+  border-radius: 6px;
+}
+
+.conf-qr-hint {
+  font-size: .72rem;
+  color: var(--gray);
+  text-align: center;
+  margin: 0;
+}
+
+.conf-datos-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .65rem;
+}
+
+.conf-dato {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  background: #f5f5f5;
+  border-radius: var(--r-lg);
+  padding: .65rem .75rem;
+}
+
+.conf-dato-full {
+  grid-column: 1 / -1;
+}
+
+.conf-dato-lbl {
+  font-size: .68rem;
+  color: var(--gray);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.conf-dato-val {
+  font-size: .95rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.conf-dato-cola {
+  font-size: 1.4rem;
+  color: var(--red);
+}
+
+.conf-aviso-tiempo {
+  flex-direction: row !important;
+  align-items: flex-start;
+  gap: .6rem;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+}
+
+.conf-aviso-icono {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  margin-top: .1rem;
+}
+
+.conf-aviso-txt {
+  font-size: .82rem;
+  color: #6d5200;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+.conf-aviso-txt strong {
+  color: #e63329;
+}

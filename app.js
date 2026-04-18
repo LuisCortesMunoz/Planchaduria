@@ -380,7 +380,11 @@ async function npFinalizar() {
     return;
   }
 
+  const tipoPrenda = val("np-nombre").trim();
+  const cantidad = parseInt(val("np-cantidad")) || 1;
   const fechaEntrega = val("np-entrega");
+  const notas = val("np-instrucciones").trim();
+
   if (!fechaEntrega) {
     toast("Selecciona la fecha de entrega.", "error");
     return;
@@ -408,19 +412,55 @@ async function npFinalizar() {
   }
 
   try {
-    const data = await api("/api/orders", "POST", {
-      tipoPrenda: val("np-nombre").trim(),
+    const payload = {
+      tipoPrenda,
       material: G.material,
-      cantidad: parseInt(val("np-cantidad")) || 1,
+      cantidad,
       fechaEntrega,
-      notas: val("np-instrucciones").trim()
-    }, true);
+      notas
+    };
+
+    const data = await api("/api/orders", "POST", payload, true);
 
     console.log("Respuesta creación pedido:", data);
 
+    let folioReal =
+      data?.order?.Folio ||
+      data?.order?.folio ||
+      data?.Folio ||
+      data?.folio ||
+      "";
+
+    if (!folioReal) {
+      const myOrders = await api("/api/orders/my", "GET", null, true);
+      const pedidos = Array.isArray(myOrders?.orders) ? myOrders.orders : [];
+
+      const coincidencias = pedidos.filter(p =>
+        String(p?.tipoPrenda || "").trim().toLowerCase() === tipoPrenda.toLowerCase() &&
+        String(p?.material || "").trim().toLowerCase() === String(G.material || "").trim().toLowerCase() &&
+        Number(p?.cantidad || 0) === Number(cantidad) &&
+        String(p?.FechaEntrega || p?.fechaEntrega || "").slice(0, 10) === fechaEntrega
+      );
+
+      coincidencias.sort((a, b) => {
+        const fa = new Date(a?.created_at || a?.fechaIngreso || a?.updated_at || 0).getTime();
+        const fb = new Date(b?.created_at || b?.fechaIngreso || b?.updated_at || 0).getTime();
+        return fb - fa;
+      });
+
+      folioReal = coincidencias[0]?.Folio || coincidencias[0]?.folio || "";
+    }
+
     resetNuevaPrenda();
     goTo("screen-menu-client");
-    mostrarModalConfirmacion(data);
+
+    mostrarModalConfirmacion({
+      ...data,
+      order: {
+        ...(data?.order || {}),
+        Folio: folioReal || data?.order?.Folio || data?.Folio || data?.folio || "—"
+      }
+    });
   } catch (err) {
     toast(err.message, "error");
   }
@@ -432,12 +472,8 @@ function mostrarModalConfirmacion(data) {
   const folio =
     order?.Folio ||
     order?.folio ||
-    order?.folioActual ||
-    order?.numeroFolio ||
     data?.Folio ||
     data?.folio ||
-    data?.folioActual ||
-    data?.numeroFolio ||
     "—";
 
   const ahora = new Date();
@@ -458,46 +494,51 @@ function mostrarModalConfirmacion(data) {
   document.getElementById("conf-hora").textContent = hora;
 
   const canvas = document.getElementById("conf-qr-canvas");
-  if (canvas) {
-    const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!canvas) {
+    document.getElementById("modal-confirmacion")?.classList.remove("hidden");
+    return;
+  }
 
-    const tmpDiv = document.createElement("div");
-    tmpDiv.innerHTML = "";
+  const ctx = canvas.getContext("2d");
+  canvas.width = 180;
+  canvas.height = 180;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    try {
-      new QRCode(tmpDiv, {
-        text: String(folio).trim(),
-        width: 180,
-        height: 180,
-        colorDark: "#1a1a1a",
-        colorLight: "#f9f9f9",
-        correctLevel: QRCode.CorrectLevel.M
-      });
+  const tmpDiv = document.createElement("div");
+  tmpDiv.innerHTML = "";
 
-      setTimeout(() => {
-        const qrCanvas = tmpDiv.querySelector("canvas");
-        const qrImg = tmpDiv.querySelector("img");
+  try {
+    new QRCode(tmpDiv, {
+      text: String(folio).trim(),
+      width: 180,
+      height: 180,
+      colorDark: "#1a1a1a",
+      colorLight: "#f9f9f9",
+      correctLevel: QRCode.CorrectLevel.M
+    });
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setTimeout(() => {
+      const qrCanvas = tmpDiv.querySelector("canvas");
+      const qrImg = tmpDiv.querySelector("img");
 
-        if (qrCanvas) {
-          canvas.width = qrCanvas.width;
-          canvas.height = qrCanvas.height;
-          ctx.drawImage(qrCanvas, 0, 0);
-        } else if (qrImg) {
-          const img = new Image();
-          img.onload = () => {
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.drawImage(img, 0, 0);
-          };
-          img.src = qrImg.src;
-        }
-      }, 200);
-    } catch (e) {
-      console.warn("QR no disponible:", e);
-    }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (qrCanvas) {
+        canvas.width = qrCanvas.width;
+        canvas.height = qrCanvas.height;
+        ctx.drawImage(qrCanvas, 0, 0);
+      } else if (qrImg) {
+        const img = new Image();
+        img.onload = () => {
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+        };
+        img.src = qrImg.src;
+      }
+    }, 200);
+  } catch (e) {
+    console.warn("QR no disponible:", e);
   }
 
   document.getElementById("modal-confirmacion")?.classList.remove("hidden");

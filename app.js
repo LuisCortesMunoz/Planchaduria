@@ -314,10 +314,19 @@ async function verifyRegisterCode() {
       code
     });
 
+    if (!data.token || !data.user) {
+      toast("La cuenta se creó, pero no se pudo iniciar sesión automáticamente.", "error");
+      closeVerifyModal();
+      clearPendingRegister();
+      goTo("screen-login-client");
+      return;
+    }
+
+    setSession(data.token, data.user);
     clearPendingRegister();
     closeVerifyModal();
 
-    toast(data.message || "Cuenta creada correctamente.", "success");
+    toast(data.message || "Cuenta verificada correctamente.", "success");
 
     setVal("reg-nombre", "");
     setVal("reg-apellido", "");
@@ -325,7 +334,8 @@ async function verifyRegisterCode() {
     setVal("reg-phone", "");
     setVal("reg-pass", "");
 
-    goTo("screen-client-login");
+    goTo("screen-menu-client");
+    loadCuenta();
   } catch (err) {
     toast(err.message, "error");
   }

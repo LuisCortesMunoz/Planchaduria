@@ -564,6 +564,51 @@
   </div>
 </div>
 
+<!-- MODAL VERIFICACIÓN DE CÓDIGO -->
+<div id="verify-overlay" class="modal-overlay hidden">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-hd">
+      <h3>Verifica tu correo</h3>
+      <button class="modal-x" onclick="closeVerifyModal()">✕</button>
+    </div>
+
+    <div class="modal-bd">
+      <p id="ver-message" style="margin-bottom:14px;">
+        Ingresa el código que enviamos a tu correo.
+      </p>
+
+      <label class="field-lbl">Correo</label>
+      <input
+        type="email"
+        id="ver-email"
+        class="field solo"
+        readonly
+        placeholder="correo@ejemplo.com"
+        style="margin-bottom:12px;"
+      />
+
+      <label class="field-lbl">Código de verificación</label>
+      <input
+        type="text"
+        id="ver-code"
+        class="field solo"
+        placeholder="123456"
+        maxlength="6"
+        inputmode="numeric"
+      />
+
+      <p class="form-hint" style="margin-top:12px;">
+        Revisa tu bandeja de entrada y también spam.
+      </p>
+    </div>
+
+    <div class="modal-ft" style="display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn-outline-dark" onclick="resendRegisterCode()">Reenviar código</button>
+      <button class="btn-dark" onclick="verifyRegisterCode()">Verificar</button>
+    </div>
+  </div>
+</div>
+
 <!-- SIDEBAR OVERLAY -->
 <div id="sidebar-overlay" class="sidebar-ov hidden" onclick="closeSidebar()"></div>
 

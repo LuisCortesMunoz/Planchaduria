@@ -11,7 +11,8 @@ const G = {
   filtered: [],
   currentId: null,
   delId: null,
-  material: ""
+  material: "",
+  pendingRegister: null
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -20,6 +21,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   createPhotoViewer();
   initResponsive();
   aplicarLimitesFechaEntrega();
+  restorePendingRegister();
   await restoreSession();
 });
 
@@ -40,6 +42,12 @@ function bindModalClosers() {
 
   document.getElementById("sidebar-overlay")?.addEventListener("click", () => {
     closeSidebar();
+  });
+
+  document.getElementById("verify-overlay")?.addEventListener("click", e => {
+    if (e.target === document.getElementById("verify-overlay")) {
+      closeVerifyModal();
+    }
   });
 
   document.addEventListener("click", e => {
@@ -67,6 +75,7 @@ function bindModalClosers() {
       closeConfirm();
       closeSidebar();
       closeImageViewer();
+      closeVerifyModal();
     }
   });
 }
@@ -148,7 +157,9 @@ async function api(path, method = "GET", body = null, withAuth = false) {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok || data.ok === false) {
-    throw new Error(data.message || "Error de servidor");
+    const error = new Error(data.message || "Error de servidor");
+    error.payload = data;
+    throw error;
   }
 
   return data;
@@ -225,7 +236,7 @@ async function loginClient() {
 async function registerClient() {
   const nombre = val("reg-nombre").trim();
   const apellido = val("reg-apellido").trim();
-  const email = val("reg-email").trim();
+  const email = val("reg-email").trim().toLowerCase();
   const telefono = val("reg-phone").trim();
   const password = val("reg-pass");
 
@@ -258,7 +269,7 @@ async function registerClient() {
   }
 
   try {
-    const data = await api("/api/auth/register", "POST", {
+    const data = await api("/api/auth/request-register-code", "POST", {
       nombre,
       apellido,
       email,
@@ -266,19 +277,118 @@ async function registerClient() {
       password
     });
 
-    setSession(data.token, data.user);
-    toast("¡Cuenta creada! Bienvenido.", "success");
-    goTo("screen-menu-client");
-    loadCuenta();
+    savePendingRegister({
+      nombre,
+      apellido,
+      email,
+      telefono
+    });
+
+    toast(data.message || "Te enviamos un código a tu correo.", "success");
+    openVerifyModal(
+      email,
+      data.message || "Ingresa el código que enviamos a tu correo."
+    );
   } catch (err) {
     toast(err.message, "error");
   }
 }
 
-async function clientLogout() {
+async function verifyRegisterCode() {
+  const code = val("ver-code").trim();
+  const email = (G.pendingRegister?.email || val("ver-email").trim()).toLowerCase();
+
+  if (!email) {
+    toast("No se encontró el correo a verificar.", "error");
+    return;
+  }
+
+  if (!code) {
+    toast("Ingresa el código de verificación.", "error");
+    return;
+  }
+
+  try {
+    const data = await api("/api/auth/verify-register-code", "POST", {
+      email,
+      code
+    });
+
+    clearPendingRegister();
+    closeVerifyModal();
+
+    toast(data.message || "Cuenta creada correctamente.", "success");
+
+    setVal("reg-nombre", "");
+    setVal("reg-apellido", "");
+    setVal("reg-email", "");
+    setVal("reg-phone", "");
+    setVal("reg-pass", "");
+
+    goTo("screen-client-login");
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+async function resendRegisterCode() {
+  const email = (G.pendingRegister?.email || val("ver-email").trim()).toLowerCase();
+
+  if (!email) {
+    toast("No se encontró el correo para reenviar el código.", "error");
+    return;
+  }
+
+  try {
+    const data = await api("/api/auth/resend-register-code", "POST", { email });
+    toast(data.message || "Código reenviado.", "success");
+    setVerifyMessage(data.message || "Te enviamos un nuevo código.");
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+function clientLogout() {
   clearSession();
   toast("Sesión cerrada.", "info");
   goTo("screen-splash");
+}
+
+/* =========================
+   MODAL VERIFICACIÓN REGISTRO
+========================= */
+function openVerifyModal(email = "", message = "") {
+  setVal("ver-code", "");
+  setVal("ver-email", email);
+  setVerifyMessage(message || "Ingresa el código de verificación.");
+  document.getElementById("verify-overlay")?.classList.remove("hidden");
+}
+
+function closeVerifyModal() {
+  document.getElementById("verify-overlay")?.classList.add("hidden");
+}
+
+function setVerifyMessage(message) {
+  const el = document.getElementById("ver-message");
+  if (el) el.textContent = message || "";
+}
+
+function savePendingRegister(data) {
+  G.pendingRegister = data || null;
+  localStorage.setItem("pendingRegister", JSON.stringify(G.pendingRegister));
+}
+
+function restorePendingRegister() {
+  try {
+    G.pendingRegister = JSON.parse(localStorage.getItem("pendingRegister") || "null");
+  } catch {
+    G.pendingRegister = null;
+  }
+}
+
+function clearPendingRegister() {
+  G.pendingRegister = null;
+  localStorage.removeItem("pendingRegister");
 }
 
 /* =========================
@@ -310,7 +420,7 @@ async function loginAdmin() {
   }
 }
 
-async function adminLogout() {
+function adminLogout() {
   clearSession();
   closeSidebar();
   toast("Sesión cerrada.", "info");
@@ -424,8 +534,6 @@ async function npFinalizar() {
     };
 
     const data = await api("/api/orders", "POST", payload, true);
-
-    console.log("Respuesta creación pedido:", data);
 
     let folioReal =
       data?.order?.Folio ||

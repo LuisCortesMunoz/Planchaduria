@@ -356,11 +356,12 @@ function npContinuar() {
   showStep(2);
 
   const hoy = new Date();
-
-  const minFecha = new Date();
-  minFecha.setDate(hoy.getDate() + 1);
-
-  const maxFecha = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0);
+  hoy.setHours(0, 0, 0, 0);
+  
+  const minFecha = new Date(hoy); // mismo día
+  
+  const maxFecha = new Date(hoy);
+  maxFecha.setDate(maxFecha.getDate() + 30); // 30 días después
 
   const el = document.getElementById("np-entrega");
 
@@ -393,21 +394,21 @@ async function npFinalizar() {
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
 
-  const minFecha = new Date(hoy);
-  minFecha.setDate(minFecha.getDate() + 1);
+  const minFecha = new Date(hoy); // hoy mismo permitido
 
-  const maxFecha = new Date(hoy.getFullYear(), hoy.getMonth() + 2, 0);
+  const maxFecha = new Date(hoy);
+  maxFecha.setDate(maxFecha.getDate() + 30);
   maxFecha.setHours(0, 0, 0, 0);
 
   const fechaSeleccionada = new Date(`${fechaEntrega}T00:00:00`);
 
   if (fechaSeleccionada < minFecha) {
-    toast("La fecha de entrega debe ser a partir de mañana.", "error");
+    toast("La fecha de entrega dependera del número de prendas en proceso.", "error");
     return;
   }
 
   if (fechaSeleccionada > maxFecha) {
-    toast("Solo puedes elegir fechas dentro del mes actual y el siguiente.", "error");
+    toast("Solo puedes elegir una fecha dentro de los próximos 30 días.", "error");
     return;
   }
 

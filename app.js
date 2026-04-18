@@ -19,7 +19,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindPasswordToggles();
   createPhotoViewer();
   initResponsive();
+  aplicarLimitesFechaEntrega();
   await restoreSession();
+});
+
+document.addEventListener("change", e => {
+  if (e.target && e.target.id === "np-entrega") {
+    validarFechaEntregaInput();
+  }
 });
 
 function bindModalClosers() {
@@ -354,20 +361,13 @@ function npContinuar() {
   }
 
   showStep(2);
-
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  
-  const minFecha = new Date(hoy); // mismo día
-  
-  const maxFecha = new Date(hoy);
-  maxFecha.setDate(maxFecha.getDate() + 30); // 30 días después
+  aplicarLimitesFechaEntrega();
 
   const el = document.getElementById("np-entrega");
-
   if (el) {
-    el.min = minFecha.toISOString().split("T")[0];
-    el.max = maxFecha.toISOString().split("T")[0];
+    setTimeout(() => {
+      aplicarLimitesFechaEntrega();
+    }, 100);
   }
 }
 
@@ -380,6 +380,8 @@ async function npFinalizar() {
     toast("Debes iniciar sesión.", "error");
     return;
   }
+
+  validarFechaEntregaInput();
 
   const tipoPrenda = val("np-nombre").trim();
   const cantidad = parseInt(val("np-cantidad")) || 1;
@@ -394,7 +396,7 @@ async function npFinalizar() {
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
 
-  const minFecha = new Date(hoy); // hoy mismo permitido
+  const minFecha = new Date(hoy);
 
   const maxFecha = new Date(hoy);
   maxFecha.setDate(maxFecha.getDate() + 30);
@@ -403,7 +405,7 @@ async function npFinalizar() {
   const fechaSeleccionada = new Date(`${fechaEntrega}T00:00:00`);
 
   if (fechaSeleccionada < minFecha) {
-    toast("La fecha de entrega dependera del número de prendas en proceso.", "error");
+    toast("La fecha de entrega debe ser desde hoy.", "error");
     return;
   }
 
@@ -1207,7 +1209,83 @@ function setText(id, value) {
 }
 
 function today() {
-  return new Date().toISOString().split("T")[0];
+  return formatLocalDate(new Date());
+}
+
+function formatLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function aplicarLimitesFechaEntrega() {
+  const el = document.getElementById("np-entrega");
+  if (!el) return;
+
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  const minFecha = new Date(hoy);
+  const maxFecha = new Date(hoy);
+  maxFecha.setDate(maxFecha.getDate() + 30);
+  maxFecha.setHours(0, 0, 0, 0);
+
+  const minStr = formatLocalDate(minFecha);
+  const maxStr = formatLocalDate(maxFecha);
+
+  el.setAttribute("min", minStr);
+  el.setAttribute("max", maxStr);
+
+  el.min = minStr;
+  el.max = maxStr;
+
+  if (!el.value) {
+    el.value = minStr;
+    return;
+  }
+
+  const valor = new Date(`${el.value}T00:00:00`);
+
+  if (isNaN(valor.getTime()) || valor < minFecha) {
+    el.value = minStr;
+    return;
+  }
+
+  if (valor > maxFecha) {
+    el.value = maxStr;
+  }
+}
+
+function validarFechaEntregaInput() {
+  const el = document.getElementById("np-entrega");
+  if (!el) return;
+
+  aplicarLimitesFechaEntrega();
+
+  if (!el.value) return;
+
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  const minFecha = new Date(hoy);
+  const maxFecha = new Date(hoy);
+  maxFecha.setDate(maxFecha.getDate() + 30);
+  maxFecha.setHours(0, 0, 0, 0);
+
+  const fechaSeleccionada = new Date(`${el.value}T00:00:00`);
+
+  if (fechaSeleccionada < minFecha) {
+    el.value = formatLocalDate(minFecha);
+    toast("En iPhone solo se permite fecha desde hoy.", "error");
+    return;
+  }
+
+  if (fechaSeleccionada > maxFecha) {
+    el.value = formatLocalDate(maxFecha);
+    toast("En iPhone solo se permite hasta 30 días después.", "error");
+    return;
+  }
 }
 
 function fmtDate(value) {

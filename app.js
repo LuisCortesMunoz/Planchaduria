@@ -12,7 +12,8 @@ const G = {
   currentId: null,
   delId: null,
   material: "",
-  pendingRegister: null
+  pendingRegister: null,
+  pendingReset: null
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -22,6 +23,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initResponsive();
   aplicarLimitesFechaEntrega();
   restorePendingRegister();
+  restorePendingReset();
   await restoreSession();
 });
 
@@ -47,6 +49,12 @@ function bindModalClosers() {
   document.getElementById("verify-overlay")?.addEventListener("click", e => {
     if (e.target === document.getElementById("verify-overlay")) {
       closeVerifyModal();
+    }
+  });
+
+  document.getElementById("reset-overlay")?.addEventListener("click", e => {
+    if (e.target === document.getElementById("reset-overlay")) {
+      closeResetPasswordModal();
     }
   });
 
@@ -76,6 +84,7 @@ function bindModalClosers() {
       closeSidebar();
       closeImageViewer();
       closeVerifyModal();
+      closeResetPasswordModal();
     }
   });
 }
@@ -315,9 +324,9 @@ async function verifyRegisterCode() {
     });
 
     if (!data.token || !data.user) {
-      toast("La cuenta se creó, pero no se pudo iniciar sesión automáticamente.", "error");
-      closeVerifyModal();
       clearPendingRegister();
+      closeVerifyModal();
+      toast(data.message || "Cuenta creada correctamente.", "success");
       goTo("screen-login-client");
       return;
     }
@@ -399,6 +408,191 @@ function restorePendingRegister() {
 function clearPendingRegister() {
   G.pendingRegister = null;
   localStorage.removeItem("pendingRegister");
+}
+
+/* =========================
+   RECUPERAR CONTRASEÑA
+========================= */
+function openResetPasswordModal(prefillEmail = "") {
+  const email = prefillEmail || val("cl-email").trim() || G.pendingReset?.email || "";
+
+  if (document.getElementById("reset-overlay")) {
+    setVal("reset-email", email);
+    setVal("reset-code", "");
+    setVal("reset-new-pass", "");
+    setVal("reset-confirm-pass", "");
+    setResetMessage("Escribe tu correo para enviarte un código de recuperación.");
+    showResetStep(1);
+    document.getElementById("reset-overlay")?.classList.remove("hidden");
+  }
+}
+
+function closeResetPasswordModal() {
+  document.getElementById("reset-overlay")?.classList.add("hidden");
+}
+
+function showResetStep(n) {
+  document.getElementById("reset-step1")?.classList.toggle("hidden", n !== 1);
+  document.getElementById("reset-step2")?.classList.toggle("hidden", n !== 2);
+  document.getElementById("reset-step3")?.classList.toggle("hidden", n !== 3);
+}
+
+function setResetMessage(message) {
+  const el = document.getElementById("reset-message");
+  if (el) el.textContent = message || "";
+}
+
+function savePendingReset(data) {
+  G.pendingReset = data || null;
+  localStorage.setItem("pendingReset", JSON.stringify(G.pendingReset));
+}
+
+function restorePendingReset() {
+  try {
+    G.pendingReset = JSON.parse(localStorage.getItem("pendingReset") || "null");
+  } catch {
+    G.pendingReset = null;
+  }
+}
+
+function clearPendingReset() {
+  G.pendingReset = null;
+  localStorage.removeItem("pendingReset");
+}
+
+async function requestPasswordResetCode() {
+  const email = val("reset-email").trim().toLowerCase();
+
+  if (!email) {
+    toast("Escribe tu correo.", "error");
+    return;
+  }
+
+  try {
+    const data = await api("/api/auth/request-reset-code", "POST", { email });
+
+    savePendingReset({
+      email,
+      codeVerified: false
+    });
+
+    setVal("reset-email", email);
+    setResetMessage(data.message || "Te enviamos un código de recuperación a tu correo.");
+    showResetStep(2);
+    toast(data.message || "Código enviado.", "success");
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+async function verifyPasswordResetCode() {
+  const email = (G.pendingReset?.email || val("reset-email").trim()).toLowerCase();
+  const code = val("reset-code").trim();
+
+  if (!email) {
+    toast("No se encontró el correo.", "error");
+    return;
+  }
+
+  if (!code) {
+    toast("Ingresa el código.", "error");
+    return;
+  }
+
+  try {
+    const data = await api("/api/auth/verify-reset-code", "POST", {
+      email,
+      code
+    });
+
+    savePendingReset({
+      email,
+      code,
+      codeVerified: true
+    });
+
+    setResetMessage(data.message || "Código correcto. Ahora escribe tu nueva contraseña.");
+    showResetStep(3);
+    toast(data.message || "Código verificado.", "success");
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+async function resendPasswordResetCode() {
+  const email = (G.pendingReset?.email || val("reset-email").trim()).toLowerCase();
+
+  if (!email) {
+    toast("No se encontró el correo para reenviar el código.", "error");
+    return;
+  }
+
+  try {
+    const data = await api("/api/auth/resend-reset-code", "POST", { email });
+    setResetMessage(data.message || "Te enviamos un nuevo código.");
+    toast(data.message || "Código reenviado.", "success");
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+async function confirmPasswordReset() {
+  const email = (G.pendingReset?.email || val("reset-email").trim()).toLowerCase();
+  const code = G.pendingReset?.code || val("reset-code").trim();
+  const newPassword = val("reset-new-pass");
+  const confirmPassword = val("reset-confirm-pass");
+
+  if (!email) {
+    toast("No se encontró el correo.", "error");
+    return;
+  }
+
+  if (!code) {
+    toast("No se encontró el código de verificación.", "error");
+    return;
+  }
+
+  if (!newPassword || !confirmPassword) {
+    toast("Escribe y confirma tu nueva contraseña.", "error");
+    return;
+  }
+
+  if (newPassword.length < 6) {
+    toast("La nueva contraseña debe tener al menos 6 caracteres.", "error");
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    toast("Las contraseñas no coinciden.", "error");
+    return;
+  }
+
+  try {
+    const data = await api("/api/auth/confirm-reset-password", "POST", {
+      email,
+      code,
+      newPassword
+    });
+
+    clearPendingReset();
+    closeResetPasswordModal();
+
+    setVal("cl-email", email);
+    setVal("cl-pass", "");
+
+    if (data.token && data.user) {
+      setSession(data.token, data.user);
+      toast(data.message || "Contraseña actualizada correctamente.", "success");
+      goTo("screen-menu-client");
+      loadCuenta();
+      return;
+    }
+
+    toast(data.message || "Contraseña actualizada correctamente. Inicia sesión.", "success");
+    goTo("screen-login-client");
+  } catch (err) {
+    toast(err.message, "error");
+  }
 }
 
 /* =========================
@@ -1059,7 +1253,7 @@ function openModal(id) {
     <div class="det-grid">
       <div class="det-item"><span class="det-lbl">Folio</span><span class="det-val">${esc(o.Folio || "—")}</span></div>
       <div class="det-item"><span class="det-lbl">Estado</span><span class="det-val">${badgeHtml(o.Estado)}</span></div>
-      <div class="det-item"><span class="det-lbl">Contador</span><span class="det-val">${o.Contador || "—"}</span></div>
+      <div class="det-item"><span class="det-lbl">Contador</span><span class="det-val">${o.Contador || "—")}</span></div>
       <div class="det-item"><span class="det-lbl">Validado</span><span class="det-val">${o.Validado ? "✅ Sí" : "⏳ No"}</span></div>
       <div class="det-item"><span class="det-lbl">Cliente</span><span class="det-val">${esc(o.cliente)}</span></div>
       <div class="det-item"><span class="det-lbl">Teléfono</span><span class="det-val">${esc(o.telefono || "—")}</span></div>

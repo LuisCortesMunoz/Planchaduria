@@ -1,1668 +1,744 @@
-// ================================
-// app.js
-// ================================
-const BACKEND_URL = "https://docker-planchaduria.onrender.com";
-
-const G = {
-  token: localStorage.getItem("token") || "",
-  user: JSON.parse(localStorage.getItem("user") || "null"),
-  isAdmin: JSON.parse(localStorage.getItem("isAdmin") || "false"),
-  orders: [],
-  filtered: [],
-  currentId: null,
-  delId: null,
-  material: "",
-  pendingRegister: null,
-  pendingReset: null
-};
-
-document.addEventListener("DOMContentLoaded", async () => {
-  bindModalClosers();
-  bindPasswordToggles();
-  createPhotoViewer();
-  initResponsive();
-  aplicarLimitesFechaEntrega();
-  restorePendingRegister();
-  restorePendingReset();
-  await restoreSession();
-});
-
-document.addEventListener("change", e => {
-  if (e.target && e.target.id === "np-entrega") {
-    validarFechaEntregaInput();
-  }
-});
-
-function bindModalClosers() {
-  document.getElementById("modal-overlay")?.addEventListener("click", e => {
-    if (e.target === document.getElementById("modal-overlay")) closeModal();
-  });
-
-  document.getElementById("confirm-overlay")?.addEventListener("click", e => {
-    if (e.target === document.getElementById("confirm-overlay")) closeConfirm();
-  });
-
-  document.getElementById("sidebar-overlay")?.addEventListener("click", () => {
-    closeSidebar();
-  });
-
-  document.getElementById("verify-overlay")?.addEventListener("click", e => {
-    if (e.target === document.getElementById("verify-overlay")) {
-      closeVerifyModal();
-    }
-  });
-
-  document.getElementById("reset-overlay")?.addEventListener("click", e => {
-    if (e.target === document.getElementById("reset-overlay")) {
-      closeResetPasswordModal();
-    }
-  });
-
-  document.addEventListener("click", e => {
-    const img = e.target.closest(".clickable-photo");
-    if (img) {
-      openImageViewer(
-        img.getAttribute("data-fullsrc") || img.getAttribute("src") || "",
-        img.getAttribute("alt") || "Foto"
-      );
-    }
-
-    const overlay = e.target.closest("#photo-viewer-overlay");
-    if (overlay && e.target.id === "photo-viewer-overlay") {
-      closeImageViewer();
-    }
-
-    if (e.target.closest("#photo-viewer-close")) {
-      closeImageViewer();
-    }
-  });
-
-  document.addEventListener("keydown", e => {
-    if (e.key === "Escape") {
-      closeModal();
-      closeConfirm();
-      closeSidebar();
-      closeImageViewer();
-      closeVerifyModal();
-      closeResetPasswordModal();
-    }
-  });
-}
-
-function bindPasswordToggles() {
-  document.querySelectorAll("[data-toggle-pass]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const inputId = btn.getAttribute("data-toggle-pass");
-      const input = document.getElementById(inputId);
-      if (!input) return;
-
-      if (input.type === "password") {
-        input.type = "text";
-        btn.textContent = "🙈";
-      } else {
-        input.type = "password";
-        btn.textContent = "👁";
-      }
-    });
-  });
-}
-
-async function restoreSession() {
-  if (!G.token) {
-    goTo("screen-splash");
-    return;
-  }
-
-  try {
-    const data = await api("/api/auth/me", "GET", null, true);
-    G.user = data.user;
-    G.isAdmin = data.user.isAdmin;
-
-    localStorage.setItem("user", JSON.stringify(G.user));
-    localStorage.setItem("isAdmin", JSON.stringify(G.isAdmin));
-
-    if (G.isAdmin) {
-      showAdmin();
-      await loadAdminData();
-    } else {
-      goTo("screen-menu-client");
-      loadCuenta();
-    }
-  } catch (err) {
-    clearSession();
-    goTo("screen-splash");
-  }
-}
-
-function goTo(screenId) {
-  document.querySelectorAll(".screen").forEach(s => {
-    s.classList.remove("active");
-    s.style.display = "";
-  });
-
-  const target = document.getElementById(screenId);
-  if (target) target.classList.add("active");
-}
-
-async function api(path, method = "GET", body = null, withAuth = false) {
-  const headers = {};
-
-  if (!(body instanceof FormData)) {
-    headers["Content-Type"] = "application/json";
-  }
-
-  if (withAuth && G.token) {
-    headers["Authorization"] = `Bearer ${G.token}`;
-  }
-
-  const response = await fetch(`${BACKEND_URL}${path}`, {
-    method,
-    headers,
-    body: body
-      ? (body instanceof FormData ? body : JSON.stringify(body))
-      : null
-  });
-
-  const data = await response.json().catch(() => ({}));
-
-  if (!response.ok || data.ok === false) {
-    const error = new Error(data.message || "Error de servidor");
-    error.payload = data;
-    throw error;
-  }
-
-  return data;
-}
-
-function setSession(token, user) {
-  G.token = token;
-  G.user = user;
-  G.isAdmin = !!user.isAdmin;
-
-  localStorage.setItem("token", token);
-  localStorage.setItem("user", JSON.stringify(user));
-  localStorage.setItem("isAdmin", JSON.stringify(G.isAdmin));
-}
-
-function clearSession() {
-  G.token = "";
-  G.user = null;
-  G.isAdmin = false;
-  G.orders = [];
-  G.filtered = [];
-  G.currentId = null;
-  G.delId = null;
-
-  localStorage.removeItem("token");
-  localStorage.removeItem("user");
-  localStorage.removeItem("isAdmin");
-}
-
-function fotoUrl(url) {
-  const value = String(url || "").trim();
-  if (!value) return "";
-
-  if (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("data:")) {
-    return value;
-  }
-
-  if (value.startsWith("/")) {
-    return `${BACKEND_URL}${value}`;
-  }
-
-  return `${BACKEND_URL}/${value}`;
-}
-
-/* =========================
-   AUTH CLIENTE
-========================= */
-async function loginClient() {
-  const email = val("cl-email").trim();
-  const password = val("cl-pass");
-
-  if (!email || !password) {
-    toast("Completa todos los campos.", "error");
-    return;
-  }
-
-  try {
-    const data = await api("/api/auth/login", "POST", { email, password });
-
-    if (data.user.isAdmin) {
-      toast("Usa el acceso de administrador.", "error");
-      return;
-    }
-
-    setSession(data.token, data.user);
-    toast("¡Bienvenido de nuevo!", "success");
-    goTo("screen-menu-client");
-    loadCuenta();
-  } catch (err) {
-    toast(err.message, "error");
-  }
-}
-
-async function registerClient() {
-  const nombre = val("reg-nombre").trim();
-  const apellido = val("reg-apellido").trim();
-  const email = val("reg-email").trim().toLowerCase();
-  const telefono = val("reg-phone").trim();
-  const password = val("reg-pass");
-
-  const soloLetras = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s]+$/;
-  const soloNumeros = /^\d+$/;
-
-  if (!nombre || !apellido || !email || !password) {
-    toast("Completa todos los campos obligatorios.", "error");
-    return;
-  }
-
-  if (nombre.length < 1 || !soloLetras.test(nombre)) {
-    toast("El nombre debe contener al menos un carácter válido.", "error");
-    return;
-  }
-
-  if (apellido.length < 1 || !soloLetras.test(apellido)) {
-    toast("El apellido debe contener al menos un carácter válido.", "error");
-    return;
-  }
-
-  if (telefono && !soloNumeros.test(telefono)) {
-    toast("El teléfono debe contener solo números.", "error");
-    return;
-  }
-
-  if (password.length < 6) {
-    toast("La contraseña debe tener al menos 6 caracteres.", "error");
-    return;
-  }
-
-  try {
-    const data = await api("/api/auth/request-register-code", "POST", {
-      nombre,
-      apellido,
-      email,
-      telefono,
-      password
-    });
-
-    savePendingRegister({
-      nombre,
-      apellido,
-      email,
-      telefono
-    });
-
-    toast(data.message || "Te enviamos un código a tu correo.", "success");
-    openVerifyModal(
-      email,
-      data.message || "Ingresa el código que enviamos a tu correo."
-    );
-  } catch (err) {
-    toast(err.message, "error");
-  }
-}
-
-async function verifyRegisterCode() {
-  const code = val("ver-code").trim();
-  const email = (G.pendingRegister?.email || val("ver-email").trim()).toLowerCase();
-
-  if (!email) {
-    toast("No se encontró el correo a verificar.", "error");
-    return;
-  }
-
-  if (!code) {
-    toast("Ingresa el código de verificación.", "error");
-    return;
-  }
-
-  try {
-    const data = await api("/api/auth/verify-register-code", "POST", {
-      email,
-      code
-    });
-
-    if (!data.token || !data.user) {
-      clearPendingRegister();
-      closeVerifyModal();
-      toast(data.message || "Cuenta creada correctamente.", "success");
-      goTo("screen-login-client");
-      return;
-    }
-
-    setSession(data.token, data.user);
-    clearPendingRegister();
-    closeVerifyModal();
-
-    toast(data.message || "Cuenta verificada correctamente.", "success");
-
-    setVal("reg-nombre", "");
-    setVal("reg-apellido", "");
-    setVal("reg-email", "");
-    setVal("reg-phone", "");
-    setVal("reg-pass", "");
-
-    goTo("screen-menu-client");
-    loadCuenta();
-  } catch (err) {
-    toast(err.message, "error");
-  }
-}
-
-async function resendRegisterCode() {
-  const email = (G.pendingRegister?.email || val("ver-email").trim()).toLowerCase();
-
-  if (!email) {
-    toast("No se encontró el correo para reenviar el código.", "error");
-    return;
-  }
-
-  try {
-    const data = await api("/api/auth/resend-register-code", "POST", { email });
-    toast(data.message || "Código reenviado.", "success");
-    setVerifyMessage(data.message || "Te enviamos un nuevo código.");
-  } catch (err) {
-    toast(err.message, "error");
-  }
-}
-
-function clientLogout() {
-  clearSession();
-  toast("Sesión cerrada.", "info");
-  goTo("screen-splash");
-}
-
-/* =========================
-   MODAL VERIFICACIÓN REGISTRO
-========================= */
-function openVerifyModal(email = "", message = "") {
-  setVal("ver-code", "");
-  setVal("ver-email", email);
-  setVerifyMessage(message || "Ingresa el código de verificación.");
-  document.getElementById("verify-overlay")?.classList.remove("hidden");
-}
-
-function closeVerifyModal() {
-  document.getElementById("verify-overlay")?.classList.add("hidden");
-}
-
-function setVerifyMessage(message) {
-  const el = document.getElementById("ver-message");
-  if (el) el.textContent = message || "";
-}
-
-function savePendingRegister(data) {
-  G.pendingRegister = data || null;
-  localStorage.setItem("pendingRegister", JSON.stringify(G.pendingRegister));
-}
-
-function restorePendingRegister() {
-  try {
-    G.pendingRegister = JSON.parse(localStorage.getItem("pendingRegister") || "null");
-  } catch {
-    G.pendingRegister = null;
-  }
-}
-
-function clearPendingRegister() {
-  G.pendingRegister = null;
-  localStorage.removeItem("pendingRegister");
-}
-
-/* =========================
-   RECUPERAR CONTRASEÑA
-========================= */
-function openResetPasswordModal(prefillEmail = "") {
-  const email = prefillEmail || val("cl-email").trim() || G.pendingReset?.email || "";
-
-  if (document.getElementById("reset-overlay")) {
-    setVal("reset-email", email);
-    setVal("reset-code", "");
-    setVal("reset-new-pass", "");
-    setVal("reset-confirm-pass", "");
-    setResetMessage("Escribe tu correo para enviarte un código de recuperación.");
-    showResetStep(1);
-    document.getElementById("reset-overlay")?.classList.remove("hidden");
-  }
-}
-
-function closeResetPasswordModal() {
-  document.getElementById("reset-overlay")?.classList.add("hidden");
-}
-
-function showResetStep(n) {
-  document.getElementById("reset-step1")?.classList.toggle("hidden", n !== 1);
-  document.getElementById("reset-step2")?.classList.toggle("hidden", n !== 2);
-  document.getElementById("reset-step3")?.classList.toggle("hidden", n !== 3);
-}
-
-function setResetMessage(message) {
-  const el = document.getElementById("reset-message");
-  if (el) el.textContent = message || "";
-}
-
-function savePendingReset(data) {
-  G.pendingReset = data || null;
-  localStorage.setItem("pendingReset", JSON.stringify(G.pendingReset));
-}
-
-function restorePendingReset() {
-  try {
-    G.pendingReset = JSON.parse(localStorage.getItem("pendingReset") || "null");
-  } catch {
-    G.pendingReset = null;
-  }
-}
-
-function clearPendingReset() {
-  G.pendingReset = null;
-  localStorage.removeItem("pendingReset");
-}
-
-async function requestPasswordResetCode() {
-  const email = val("reset-email").trim().toLowerCase();
-
-  if (!email) {
-    toast("Escribe tu correo.", "error");
-    return;
-  }
-
-  try {
-    const data = await api("/api/auth/request-reset-code", "POST", { email });
-
-    savePendingReset({
-      email,
-      codeVerified: false
-    });
-
-    setVal("reset-email", email);
-    setResetMessage(data.message || "Te enviamos un código de recuperación a tu correo.");
-    showResetStep(2);
-    toast(data.message || "Código enviado.", "success");
-  } catch (err) {
-    toast(err.message, "error");
-  }
-}
-
-async function verifyPasswordResetCode() {
-  const email = (G.pendingReset?.email || val("reset-email").trim()).toLowerCase();
-  const code = val("reset-code").trim();
-
-  if (!email) {
-    toast("No se encontró el correo.", "error");
-    return;
-  }
-
-  if (!code) {
-    toast("Ingresa el código.", "error");
-    return;
-  }
-
-  try {
-    const data = await api("/api/auth/verify-reset-code", "POST", {
-      email,
-      code
-    });
-
-    savePendingReset({
-      email,
-      code,
-      codeVerified: true
-    });
-
-    setResetMessage(data.message || "Código correcto. Ahora escribe tu nueva contraseña.");
-    showResetStep(3);
-    toast(data.message || "Código verificado.", "success");
-  } catch (err) {
-    toast(err.message, "error");
-  }
-}
-
-async function resendPasswordResetCode() {
-  const email = (G.pendingReset?.email || val("reset-email").trim()).toLowerCase();
-
-  if (!email) {
-    toast("No se encontró el correo para reenviar el código.", "error");
-    return;
-  }
-
-  try {
-    const data = await api("/api/auth/resend-reset-code", "POST", { email });
-    setResetMessage(data.message || "Te enviamos un nuevo código.");
-    toast(data.message || "Código reenviado.", "success");
-  } catch (err) {
-    toast(err.message, "error");
-  }
-}
-
-async function confirmPasswordReset() {
-  const email = (G.pendingReset?.email || val("reset-email").trim()).toLowerCase();
-  const code = G.pendingReset?.code || val("reset-code").trim();
-  const newPassword = val("reset-new-pass");
-  const confirmPassword = val("reset-confirm-pass");
-
-  if (!email) {
-    toast("No se encontró el correo.", "error");
-    return;
-  }
-
-  if (!code) {
-    toast("No se encontró el código de verificación.", "error");
-    return;
-  }
-
-  if (!newPassword || !confirmPassword) {
-    toast("Escribe y confirma tu nueva contraseña.", "error");
-    return;
-  }
-
-  if (newPassword.length < 6) {
-    toast("La nueva contraseña debe tener al menos 6 caracteres.", "error");
-    return;
-  }
-
-  if (newPassword !== confirmPassword) {
-    toast("Las contraseñas no coinciden.", "error");
-    return;
-  }
-
-  try {
-    const data = await api("/api/auth/confirm-reset-password", "POST", {
-      email,
-      code,
-      newPassword
-    });
-
-    clearPendingReset();
-    closeResetPasswordModal();
-
-    setVal("cl-email", email);
-    setVal("cl-pass", "");
-
-    if (data.token && data.user) {
-      setSession(data.token, data.user);
-      toast(data.message || "Contraseña actualizada correctamente.", "success");
-      goTo("screen-menu-client");
-      loadCuenta();
-      return;
-    }
-
-    toast(data.message || "Contraseña actualizada correctamente. Inicia sesión.", "success");
-    goTo("screen-login-client");
-  } catch (err) {
-    toast(err.message, "error");
-  }
-}
-
-/* =========================
-   AUTH ADMIN
-========================= */
-async function loginAdmin() {
-  const email = val("adm-email").trim();
-  const password = val("adm-pass");
-
-  if (!email || !password) {
-    toast("Completa correo y contraseña.", "error");
-    return;
-  }
-
-  try {
-    const data = await api("/api/auth/login", "POST", { email, password });
-
-    if (!data.user.isAdmin) {
-      toast("Acceso denegado. No tienes permisos de administrador.", "error");
-      return;
-    }
-
-    setSession(data.token, data.user);
-    toast("¡Bienvenido al panel!", "success");
-    showAdmin();
-    await loadAdminData();
-  } catch (err) {
-    toast(err.message, "error");
-  }
-}
-
-function adminLogout() {
-  clearSession();
-  closeSidebar();
-  toast("Sesión cerrada.", "info");
-  goTo("screen-splash");
-}
-
-/* =========================
-   NUEVA PRENDA CLIENTE
-========================= */
-function resetNuevaPrenda() {
-  G.material = "";
-  setVal("np-nombre", "");
-  setVal("np-cantidad", "1");
-  setVal("np-instrucciones", "");
-  setVal("np-entrega", "");
-  document.querySelectorAll(".mat-btn").forEach(b => b.classList.remove("selected"));
-  showStep(1);
-}
-
-function showStep(n) {
-  document.getElementById("np-step1")?.classList.toggle("hidden", n !== 1);
-  document.getElementById("np-step2")?.classList.toggle("hidden", n !== 2);
-}
-
-function selectMaterial(btn) {
-  document.querySelectorAll(".mat-btn").forEach(b => b.classList.remove("selected"));
-  btn.classList.add("selected");
-  G.material = btn.textContent.trim();
-}
-
-function npContinuar() {
-  const nombre = val("np-nombre").trim();
-  const cantidad = parseInt(val("np-cantidad")) || 0;
-
-  if (!nombre) {
-    toast("Escribe el nombre de la prenda.", "error");
-    return;
-  }
-
-  if (cantidad < 1) {
-    toast("La cantidad debe ser al menos 1.", "error");
-    return;
-  }
-
-  if (!G.material) {
-    toast("Selecciona el material.", "error");
-    return;
-  }
-
-  showStep(2);
-  aplicarLimitesFechaEntrega();
-
-  const el = document.getElementById("np-entrega");
-  if (el) {
-    setTimeout(() => {
-      aplicarLimitesFechaEntrega();
-    }, 100);
-  }
-}
-
-function npVolver() {
-  showStep(1);
-}
-
-async function npFinalizar() {
-  if (!G.token) {
-    toast("Debes iniciar sesión.", "error");
-    return;
-  }
-
-  validarFechaEntregaInput();
-
-  const tipoPrenda = val("np-nombre").trim();
-  const cantidad = parseInt(val("np-cantidad")) || 1;
-  const fechaEntrega = val("np-entrega");
-  const notas = val("np-instrucciones").trim();
-
-  if (!fechaEntrega) {
-    toast("Selecciona la fecha de entrega.", "error");
-    return;
-  }
-
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-
-  const minFecha = new Date(hoy);
-
-  const maxFecha = new Date(hoy);
-  maxFecha.setDate(maxFecha.getDate() + 30);
-  maxFecha.setHours(0, 0, 0, 0);
-
-  const fechaSeleccionada = new Date(`${fechaEntrega}T00:00:00`);
-
-  if (fechaSeleccionada < minFecha) {
-    toast("La fecha de entrega debe ser desde hoy.", "error");
-    return;
-  }
-
-  if (fechaSeleccionada > maxFecha) {
-    toast("Solo puedes elegir una fecha dentro de los próximos 30 días.", "error");
-    return;
-  }
-
-  try {
-    const payload = {
-      tipoPrenda,
-      material: G.material,
-      cantidad,
-      fechaEntrega,
-      notas
-    };
-
-    const data = await api("/api/orders", "POST", payload, true);
-
-    let folioReal =
-      data?.order?.Folio ||
-      data?.order?.folio ||
-      data?.Folio ||
-      data?.folio ||
-      "";
-
-    if (!folioReal) {
-      const myOrders = await api("/api/orders/my", "GET", null, true);
-      const pedidos = Array.isArray(myOrders?.orders) ? myOrders.orders : [];
-
-      const coincidencias = pedidos.filter(p =>
-        String(p?.tipoPrenda || "").trim().toLowerCase() === tipoPrenda.toLowerCase() &&
-        String(p?.material || "").trim().toLowerCase() === String(G.material || "").trim().toLowerCase() &&
-        Number(p?.cantidad || 0) === Number(cantidad) &&
-        String(p?.FechaEntrega || p?.fechaEntrega || "").slice(0, 10) === fechaEntrega
-      );
-
-      coincidencias.sort((a, b) => {
-        const fa = new Date(a?.created_at || a?.fechaIngreso || a?.updated_at || 0).getTime();
-        const fb = new Date(b?.created_at || b?.fechaIngreso || b?.updated_at || 0).getTime();
-        return fb - fa;
-      });
-
-      folioReal = coincidencias[0]?.Folio || coincidencias[0]?.folio || "";
-    }
-
-    resetNuevaPrenda();
-    goTo("screen-menu-client");
-
-    mostrarModalConfirmacion({
-      ...data,
-      order: {
-        ...(data?.order || {}),
-        Folio: folioReal || data?.order?.Folio || data?.Folio || data?.folio || "—"
-      }
-    });
-  } catch (err) {
-    toast(err.message, "error");
-  }
-}
-
-function mostrarModalConfirmacion(data) {
-  const order = data?.order || data?.pedido || data || {};
-
-  const folio =
-    order?.Folio ||
-    order?.folio ||
-    data?.Folio ||
-    data?.folio ||
-    "—";
-
-  const ahora = new Date();
-
-  const fecha = ahora.toLocaleDateString("es-MX", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric"
-  });
-
-  const hora = ahora.toLocaleTimeString("es-MX", {
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-
-  document.getElementById("conf-folio").textContent = folio;
-  document.getElementById("conf-fecha").textContent = fecha;
-  document.getElementById("conf-hora").textContent = hora;
-
-  const canvas = document.getElementById("conf-qr-canvas");
-  if (!canvas) {
-    document.getElementById("modal-confirmacion")?.classList.remove("hidden");
-    return;
-  }
-
-  const ctx = canvas.getContext("2d");
-  canvas.width = 180;
-  canvas.height = 180;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  const tmpDiv = document.createElement("div");
-  tmpDiv.innerHTML = "";
-
-  try {
-    new QRCode(tmpDiv, {
-      text: String(folio).trim(),
-      width: 180,
-      height: 180,
-      colorDark: "#1a1a1a",
-      colorLight: "#f9f9f9",
-      correctLevel: QRCode.CorrectLevel.M
-    });
-
-    setTimeout(() => {
-      const qrCanvas = tmpDiv.querySelector("canvas");
-      const qrImg = tmpDiv.querySelector("img");
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      if (qrCanvas) {
-        canvas.width = qrCanvas.width;
-        canvas.height = qrCanvas.height;
-        ctx.drawImage(qrCanvas, 0, 0);
-      } else if (qrImg) {
-        const img = new Image();
-        img.onload = () => {
-          canvas.width = img.width;
-          canvas.height = img.height;
-          ctx.drawImage(img, 0, 0);
-        };
-        img.src = qrImg.src;
-      }
-    }, 200);
-  } catch (e) {
-    console.warn("QR no disponible:", e);
-  }
-
-  document.getElementById("modal-confirmacion")?.classList.remove("hidden");
-}
-
-function cerrarModalConfirmacion() {
-  document.getElementById("modal-confirmacion")?.classList.add("hidden");
-}
-
-/* =========================
-   PANTALLAS CLIENTE
-========================= */
-async function loadMisPrendas() {
-  const list = document.getElementById("mis-prendas-list");
-  if (!list) return;
-
-  list.innerHTML = '<p class="empty-msg">Cargando…</p>';
-
-  try {
-    const data = await api("/api/orders/my", "GET", null, true);
-    const pedidos = data.orders || [];
-
-    if (!pedidos.length) {
-      list.innerHTML = '<p class="empty-msg">No tienes prendas registradas aún.</p>';
-      return;
-    }
-
-    list.innerHTML = pedidos.map(p => {
-      const fotos = Array.isArray(p.fotos) ? p.fotos : [];
-      const fotosHtml = fotos.length
-        ? `
-          <div class="pedido-fotos">
-            ${fotos.map(f => {
-              const fullSrc = fotoUrl(f.url);
-              return `
-                <div class="pedido-foto-item">
-                  <img
-                    src="${fullSrc}"
-                    data-fullsrc="${fullSrc}"
-                    class="clickable-photo"
-                    alt="Foto ${esc(p.Folio)}"
-                    loading="lazy"
-                    referrerpolicy="no-referrer"
-                  >
-                  <span>${esc(f.fecha_hora || "")}</span>
-                </div>
-              `;
-            }).join("")}
-          </div>
-        `
-        : `<p class="sin-fotos">Aún no hay fotos para este pedido.</p>`;
-
-      return `
-        <div class="prenda-item pedido-card-col">
-          <div class="prenda-item-top">
-            <div class="prenda-item-info">
-              <span class="prenda-item-name">${esc(p.tipoPrenda)}</span>
-              <span class="prenda-item-sub">${fmtDate(p.fechaIngreso)} · ${esc(p.material || "")} · ${p.cantidad} pza.</span>
-              <span>${badgeHtml(p.Estado)}</span>
-            </div>
-            <span class="prenda-item-id">${esc(p.Folio || "")}</span>
-          </div>
-          ${fotosHtml}
-        </div>
-      `;
-    }).join("");
-  } catch (err) {
-    list.innerHTML = '<p class="empty-msg">Error al cargar prendas.</p>';
-  }
-}
-
-async function buscarPedido() {
-  const folio = val("tracking-input").trim().toUpperCase();
-
-  if (!folio) {
-    toast("Ingresa un ID de seguimiento.", "error");
-    return;
-  }
-
-  const result = document.getElementById("tracking-result");
-  const empty = document.getElementById("tracking-empty");
-
-  result?.classList.add("hidden");
-  if (empty) empty.style.display = "none";
-
-  try {
-    const data = await api(`/api/orders/track/${encodeURIComponent(folio)}`);
-    const p = data.order;
-
-    setText("tr-id", p.Folio || folio);
-    setText("tr-prenda", p.tipoPrenda || "—");
-    setText("tr-cliente", p.cliente || "—");
-    setText("tr-entrega", fmtDate(p.FechaEntrega));
-    setText("tr-estado", estadoLabel(p.Estado));
-
-    result?.classList.remove("hidden");
-  } catch (err) {
-    if (empty) {
-      empty.style.display = "block";
-      empty.textContent = `No se encontró ningún pedido con ID ${folio}.`;
-    }
-  }
-}
-
-function loadCuenta() {
-  if (!G.user) return;
-  setText("cuenta-name", G.user.nombreCompleto || G.user.email || "");
-  setText("cuenta-email", G.user.email || "");
-}
-
-/* =========================
-   ADMIN
-========================= */
-function showAdmin() {
-  document.querySelectorAll(".screen").forEach(s => {
-    s.classList.remove("active");
-    s.style.display = "";
-  });
-
-  const adminScreen = document.getElementById("screen-admin");
-  if (adminScreen) {
-    adminScreen.style.display = "flex";
-    adminScreen.classList.add("active");
-  }
-
-  setText("adm-user-pill", (G.user?.email || "Admin").split("@")[0]);
-}
-
-async function loadAdminData() {
-  try {
-    const [ordersData, clientsData] = await Promise.all([
-      api("/api/admin/orders", "GET", null, true),
-      api("/api/admin/clients", "GET", null, true)
-    ]);
-
-    G.orders = ordersData.orders || [];
-    G.filtered = [...G.orders];
-
-    updateMetrics();
-    renderDashRecent();
-    applyFilters();
-    renderClientes(clientsData.clients || []);
-  } catch (err) {
-    toast(err.message, "error");
-  }
-}
-
-function admNav(btn) {
-  const targetId = btn.dataset.view;
-
-  document.querySelectorAll(".adm-nav-btn").forEach(b => b.classList.remove("active"));
-  btn.classList.add("active");
-
-  document.querySelectorAll(".adm-view").forEach(v => v.classList.remove("active-adm-view"));
-  document.getElementById(targetId)?.classList.add("active-adm-view");
-
-  const titles = {
-    "adm-view-dashboard": "Dashboard",
-    "adm-view-pedidos": "Pedidos",
-    "adm-view-nuevo": "Nuevo Pedido",
-    "adm-view-clientes": "Clientes"
-  };
-
-  setText("adm-page-title", titles[targetId] || "");
-
-  if (window.innerWidth < 900) {
-    closeSidebar();
-  }
-}
-
-function admNavById(viewId) {
-  const btn = document.querySelector(`[data-view="${viewId}"]`);
-  if (btn) admNav(btn);
-}
-
-function updateMetrics() {
-  const cnt = { pendiente: 0, en_proceso: 0, planchado: 0, listo: 0, entregado: 0 };
-
-  G.orders.forEach(o => {
-    if (cnt[o.Estado] !== undefined) cnt[o.Estado]++;
-  });
-
-  setText("m-total", String(G.orders.length));
-  setText("m-pend", String(cnt.pendiente));
-  setText("m-proc", String(cnt.en_proceso + cnt.planchado));
-  setText("m-list", String(cnt.listo));
-  setText("m-ent", String(cnt.entregado));
-}
-
-function renderDashRecent() {
-  const tbody = document.getElementById("dash-tbody");
-  if (!tbody) return;
-
-  const list = G.orders.slice(0, 6);
-
-  if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="t-empty">Sin pedidos aún.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = list.map(o => `
-    <tr>
-      <td><strong>${esc(o.Folio || "—")}</strong></td>
-      <td>${esc(o.cliente)}</td>
-      <td>${esc(o.tipoPrenda)}</td>
-      <td>${fmtDate(o.fechaIngreso)}</td>
-      <td>${badgeHtml(o.Estado)}</td>
-      <td>
-        <div class="tbl-actions">
-          <button class="tbl-btn" onclick="openModal('${o.id}')">👁</button>
-        </div>
-      </td>
-    </tr>
-  `).join("");
-}
-
-function applyFilters() {
-  const search = (document.getElementById("adm-search")?.value || "").toLowerCase();
-  const status = document.getElementById("adm-filter-st")?.value || "";
-
-  G.filtered = G.orders.filter(o => {
-    const matchText = !search ||
-      (o.cliente || "").toLowerCase().includes(search) ||
-      (o.tipoPrenda || "").toLowerCase().includes(search) ||
-      (o.Folio || "").toLowerCase().includes(search);
-
-    const matchStatus = !status || o.Estado === status;
-    return matchText && matchStatus;
-  });
-
-  renderPedidosTable();
-}
-
-function renderPedidosTable() {
-  const tbody = document.getElementById("pedidos-tbody");
-  if (!tbody) return;
-
-  if (!G.filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="t-empty">No hay pedidos que coincidan.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = G.filtered.map(o => `
-    <tr>
-      <td><strong>${esc(o.Folio || "—")}</strong></td>
-      <td>${esc(o.cliente)}</td>
-      <td>${esc(o.tipoPrenda)}</td>
-      <td>${esc(o.material || "—")}</td>
-      <td style="text-align:center">${o.cantidad || 1}</td>
-      <td>${fmtDate(o.fechaIngreso)}</td>
-      <td>${fmtDate(o.FechaEntrega)}</td>
-      <td>${badgeHtml(o.Estado)}</td>
-      <td>
-        <div class="tbl-actions">
-          <button class="tbl-btn" onclick="openModal('${o.id}')">👁</button>
-          <button class="tbl-btn" onclick="admOpenEdit('${o.id}')">✏️</button>
-          <button class="tbl-btn del" onclick="confirmDelete('${o.id}')">🗑</button>
-        </div>
-      </td>
-    </tr>
-  `).join("");
-}
-
-function admOpenNew() {
-  ["adm-f-cliente", "adm-f-telefono", "adm-f-prenda", "adm-f-cantidad", "adm-f-precio", "adm-f-notas"].forEach(id => setVal(id, ""));
-  setVal("adm-edit-id", "");
-  setVal("adm-f-material", "");
-  setVal("adm-f-ingreso", today());
-  setVal("adm-f-entrega", "");
-  setVal("adm-f-estado", "pendiente");
-  setText("adm-form-title", "Registrar nuevo pedido");
-  const row = document.getElementById("adm-status-row");
-  if (row) row.style.display = "none";
-}
-
-function admOpenEdit(id) {
-  const o = G.orders.find(x => x.id === id);
-  if (!o) return;
-
-  setVal("adm-edit-id", id);
-  setVal("adm-f-cliente", o.cliente || "");
-  setVal("adm-f-telefono", o.telefono || "");
-  setVal("adm-f-prenda", o.tipoPrenda || "");
-  setVal("adm-f-material", o.material || "");
-  setVal("adm-f-cantidad", o.cantidad || 1);
-  setVal("adm-f-precio", o.precio || "");
-  setVal("adm-f-ingreso", o.fechaIngreso || "");
-  setVal("adm-f-entrega", o.FechaEntrega || "");
-  setVal("adm-f-notas", o.notas || "");
-  setVal("adm-f-estado", o.Estado || "pendiente");
-
-  setText("adm-form-title", "Editar pedido");
-  const row = document.getElementById("adm-status-row");
-  if (row) row.style.display = "block";
-
-  closeModal();
-  admNavById("adm-view-nuevo");
-}
-
-async function admSaveOrder() {
-  const editId = val("adm-edit-id");
-  const cliente = val("adm-f-cliente").trim();
-  const prenda = val("adm-f-prenda").trim();
-  const cantidad = parseInt(val("adm-f-cantidad")) || 0;
-  const ingreso = val("adm-f-ingreso");
-  const fechaEntrega = val("adm-f-entrega");
-
-  if (!cliente) {
-    toast("El nombre del cliente es obligatorio.", "error");
-    return;
-  }
-
-  if (!prenda) {
-    toast("El nombre de la prenda es obligatorio.", "error");
-    return;
-  }
-
-  if (cantidad < 1) {
-    toast("La cantidad debe ser al menos 1.", "error");
-    return;
-  }
-
-  if (!ingreso || !fechaEntrega) {
-    toast("Debes completar las fechas.", "error");
-    return;
-  }
-
-  if (fechaEntrega < ingreso) {
-    toast("La entrega no puede ser antes del ingreso.", "error");
-    return;
-  }
-
-  const payload = {
-    cliente,
-    telefono: val("adm-f-telefono").trim(),
-    tipoPrenda: prenda,
-    material: val("adm-f-material"),
-    cantidad,
-    precio: parseFloat(val("adm-f-precio")) || null,
-    fechaIngreso: ingreso,
-    FechaEntrega: fechaEntrega,
-    notas: val("adm-f-notas").trim()
-  };
-
-  try {
-    if (editId) {
-      payload.Estado = val("adm-f-estado");
-      await api(`/api/admin/orders/${editId}`, "PATCH", payload, true);
-      toast("Pedido actualizado.", "success");
-    } else {
-      await api("/api/admin/orders", "POST", payload, true);
-      toast("Pedido registrado.", "success");
-    }
-
-    admOpenNew();
-    admNavById("adm-view-pedidos");
-    await loadAdminData();
-  } catch (err) {
-    toast(err.message, "error");
-  }
-}
-
-function openModal(id) {
-  const o = G.orders.find(x => x.id === id);
-  if (!o) return;
-
-  G.currentId = id;
-
-  const fotos = Array.isArray(o.fotos) ? o.fotos : [];
-  const fotosHtml = fotos.length
-    ? `
-      <div class="pedido-fotos" style="margin-top:16px;">
-        ${fotos.map(f => {
-          const fullSrc = fotoUrl(f.url);
-          return `
-            <div class="pedido-foto-item">
-              <img
-                src="${fullSrc}"
-                data-fullsrc="${fullSrc}"
-                class="clickable-photo"
-                alt="Foto ${esc(o.Folio)}"
-                loading="lazy"
-                referrerpolicy="no-referrer"
-              >
-              <span>${esc(f.fecha_hora || "")}</span>
-            </div>
-          `;
-        }).join("")}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Planchado Express</title>
+  <link rel="stylesheet" href="styles.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+<template id="tpl-iron">
+  <svg class="iron-icon" viewBox="0 0 80 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
+    <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
+    <path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="28" cy="8" r="3" fill="#e63329"/>
+    <circle cx="45" cy="30" r="2" fill="white" opacity="0.7"/>
+    <circle cx="53" cy="30" r="2" fill="white" opacity="0.7"/>
+    <circle cx="61" cy="30" r="2" fill="white" opacity="0.7"/>
+  </svg>
+</template>
+
+<!-- ════════════════════════════════════════════
+  SPLASH / INICIO
+════════════════════════════════════════════ -->
+<div id="screen-splash" class="screen active">
+  <div class="phone-wrap">
+    <div class="logo-block">
+      <svg class="iron-icon lg" viewBox="0 0 80 60" fill="none">
+        <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
+        <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
+        <path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="28" cy="8" r="3" fill="#e63329"/>
+        <circle cx="45" cy="30" r="2" fill="white" opacity="0.7"/>
+        <circle cx="53" cy="30" r="2" fill="white" opacity="0.7"/>
+        <circle cx="61" cy="30" r="2" fill="white" opacity="0.7"/>
+      </svg>
+      <p class="brand-name">PLANCHADO EXPRESS</p>
+    </div>
+
+    <div class="splash-card">
+      <p class="splash-welcome">Te damos la<br/>bienvenida a</p>
+      <p class="splash-brand-red">PLANCHADO EXPRESS</p>
+      <p class="splash-sub">Monitorea el proceso de tu prenda en tiempo real desde tu dispositivo móvil</p>
+      <button class="btn-dark full" onclick="goTo('screen-login-client')">Iniciar Sesión</button>
+      <button class="btn-outline full" onclick="goTo('screen-register')">Crear Nueva Cuenta</button>
+    </div>
+
+    <button class="admin-link-btn" onclick="goTo('screen-login-admin')">Acceso administrador →</button>
+  </div>
+</div>
+
+<!-- LOGIN CLIENTE -->
+<div id="screen-login-client" class="screen">
+  <div class="phone-wrap">
+    <div class="topbar-sm">
+      <button class="back-btn" onclick="goTo('screen-splash')">←</button>
+      <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
+        <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
+        <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
+        <path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="28" cy="8" r="3" fill="#e63329"/>
+      </svg>
+    </div>
+    <div class="form-card">
+      <h2 class="form-title">Iniciar Sesión</h2>
+      <div class="input-row">
+        <span class="flag">🇲🇽</span>
+        <input type="email" id="cl-email" placeholder="correo@ejemplo.com" class="field"/>
       </div>
-    `
-    : `<p class="sin-fotos" style="margin-top:16px;">Aún no hay fotos para este pedido.</p>`;
+      <div class="input-row">
+        <input type="password" id="cl-pass" placeholder="Contraseña" class="field"/>
+        <button type="button" class="eye-btn" data-toggle-pass="cl-pass">👁</button>
+      </div>
+      <button class="btn-dark full" onclick="loginClient()">Iniciar Sesión</button>
 
-  const modal = document.getElementById("modal-bd");
-  if (!modal) return;
+      <p class="form-hint" style="margin-top:14px;">
+        <span class="link-span" onclick="openResetPasswordModal()">¿Olvidaste tu contraseña?</span>
+      </p>
 
-  modal.innerHTML = `
-    <div class="det-grid">
-      <div class="det-item"><span class="det-lbl">Folio</span><span class="det-val">${esc(o.Folio || "—")}</span></div>
-      <div class="det-item"><span class="det-lbl">Estado</span><span class="det-val">${badgeHtml(o.Estado)}</span></div>
-      <div class="det-item"><span class="det-lbl">Contador</span><span class="det-val">${o.Contador || "—")}</span></div>
-      <div class="det-item"><span class="det-lbl">Validado</span><span class="det-val">${o.Validado ? "✅ Sí" : "⏳ No"}</span></div>
-      <div class="det-item"><span class="det-lbl">Cliente</span><span class="det-val">${esc(o.cliente)}</span></div>
-      <div class="det-item"><span class="det-lbl">Teléfono</span><span class="det-val">${esc(o.telefono || "—")}</span></div>
-      <div class="det-item"><span class="det-lbl">Prenda</span><span class="det-val">${esc(o.tipoPrenda)}</span></div>
-      <div class="det-item"><span class="det-lbl">Material</span><span class="det-val">${esc(o.material || "—")}</span></div>
-      <div class="det-item"><span class="det-lbl">Cantidad</span><span class="det-val">${o.cantidad || 1} pza.</span></div>
-      <div class="det-item"><span class="det-lbl">Precio</span><span class="det-val">${o.precio ? `$${parseFloat(o.precio).toFixed(2)} MXN` : "—"}</span></div>
-      <div class="det-item"><span class="det-lbl">Ingreso</span><span class="det-val">${fmtDate(o.fechaIngreso)}</span></div>
-      <div class="det-item"><span class="det-lbl">Entrega est.</span><span class="det-val">${fmtDate(o.FechaEntrega)}</span></div>
-      ${o.notas ? `<div class="det-item full"><span class="det-lbl">Notas</span><span class="det-val">${esc(o.notas)}</span></div>` : ""}
-      <div class="det-item full">
-        <span class="det-lbl">Fotos</span>
-        <div class="det-val">${fotosHtml}</div>
+      <p class="form-hint">¿No tienes cuenta? <span class="link-span" onclick="goTo('screen-register')">Regístrate</span></p>
+    </div>
+  </div>
+</div>
+
+<!-- REGISTRO CLIENTE -->
+<div id="screen-register" class="screen">
+  <div class="phone-wrap">
+    <div class="topbar-sm">
+      <button class="back-btn" onclick="goTo('screen-splash')">←</button>
+      <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
+        <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
+        <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
+        <path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="28" cy="8" r="3" fill="#e63329"/>
+      </svg>
+    </div>
+    <div class="form-card">
+      <h2 class="form-title">Nueva Cuenta</h2>
+      <p class="form-subtitle">Crea una cuenta para continuar</p>
+      <input type="text" id="reg-nombre" placeholder="Nombre" class="field solo"/>
+      <input type="text" id="reg-apellido" placeholder="Apellido" class="field solo"/>
+      <input type="email" id="reg-email" placeholder="Correo" class="field solo"/>
+      <div class="input-row">
+        <span class="flag">🇲🇽</span>
+        <input type="tel" id="reg-phone" placeholder="(454) 726-0592" class="field"/>
+      </div>
+      <div class="input-row">
+        <input type="password" id="reg-pass" placeholder="Contraseña" class="field"/>
+        <button type="button" class="eye-btn" data-toggle-pass="reg-pass">👁</button>
+      </div>
+      <button class="btn-dark full" onclick="registerClient()">Crear Cuenta</button>
+      <p class="form-hint">¿Ya tienes cuenta? <span class="link-span" onclick="goTo('screen-login-client')">Inicia sesión</span></p>
+    </div>
+  </div>
+</div>
+
+<!-- MENÚ PRINCIPAL CLIENTE -->
+<div id="screen-menu-client" class="screen">
+  <div class="phone-wrap">
+
+    <div class="topbar-sm center">
+      <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
+        <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
+        <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
+        <path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="28" cy="8" r="3" fill="#e63329"/>
+      </svg>
+    </div>
+
+    <div class="menu-welcome">
+      <p class="welcome-text">Bienvenido a</p>
+      <h1 class="welcome-brand">PLANCHADO EXPRESS</h1>
+    </div>
+
+    <button class="btn-red menu-register-btn full" onclick="goTo('screen-nueva-prenda');resetNuevaPrenda()">
+      Registrar nueva prenda
+    </button>
+
+    <div class="menu-grid">
+
+      <button class="menu-tile" onclick="goTo('screen-mis-prendas');loadMisPrendas()">
+        <div class="tile-icon">
+          <svg viewBox="0 0 48 48" fill="none" width="40" height="40">
+            <rect x="8" y="14" width="32" height="26" rx="4" stroke="#e63329" stroke-width="2.5"/>
+            <path d="M16 14V12a8 8 0 0116 0v2" stroke="#e63329" stroke-width="2.5"/>
+            <path d="M14 24h20M14 32h12" stroke="#e63329" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="36" cy="36" r="7" fill="#e63329"/>
+            <path d="M33 36l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span>Prendas Registradas</span>
+      </button>
+
+      <button class="menu-tile" onclick="goTo('screen-cuenta-cliente');loadCuenta()">
+        <div class="tile-icon">
+          <svg viewBox="0 0 48 48" fill="none" width="40" height="40">
+            <circle cx="24" cy="18" r="8" stroke="#e63329" stroke-width="2.5"/>
+            <path d="M8 40c0-8.837 7.163-16 16-16s16 7.163 16 16" stroke="#e63329" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span>Cuenta</span>
+      </button>
+
+    </div>
+
+    <button class="menu-policy-link" onclick="goTo('screen-politicas')">
+      Consulta aquí nuestras políticas del servicio
+    </button>
+
+    <button class="logout-link-btn" onclick="clientLogout()">Cerrar sesión</button>
+
+  </div>
+</div>
+
+<!-- ESTADO DE PRENDA -->
+<div id="screen-estado-prenda" class="screen">
+  <div class="phone-wrap">
+    <div class="topbar-sm">
+      <button class="back-btn" onclick="goTo('screen-mis-prendas');loadMisPrendas()">←</button>
+      <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
+        <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
+        <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
+        <path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="28" cy="8" r="3" fill="#e63329"/>
+      </svg>
+    </div>
+    <h2 class="screen-title">ESTADO DE PRENDA</h2>
+
+    <div class="tracking-box">
+      <label class="field-lbl">Ingresa tu ID de seguimiento</label>
+      <div class="input-row" style="margin-top:.5rem">
+        <input type="text" id="tracking-input" placeholder="#00001" class="field" style="text-transform:uppercase"/>
+        <button class="btn-red-sq" onclick="buscarPedido()">Buscar</button>
       </div>
     </div>
-  `;
 
-  const st = document.getElementById("modal-st-sel");
-  if (st) st.value = o.Estado || "pendiente";
-
-  document.getElementById("modal-overlay")?.classList.remove("hidden");
-}
-
-function closeModal() {
-  document.getElementById("modal-overlay")?.classList.add("hidden");
-  G.currentId = null;
-}
-
-async function admUpdateStatus() {
-  if (!G.currentId) return;
-
-  const newEstado = document.getElementById("modal-st-sel")?.value || "pendiente";
-
-  try {
-    await api(`/api/admin/orders/${G.currentId}`, "PATCH", {
-      Estado: newEstado
-    }, true);
-
-    toast("Estado actualizado.", "success");
-    closeModal();
-    await loadAdminData();
-  } catch (err) {
-    toast(err.message, "error");
-  }
-}
-
-function admEditFromModal() {
-  if (G.currentId) admOpenEdit(G.currentId);
-}
-
-function confirmDelete(id) {
-  G.delId = id;
-  document.getElementById("confirm-overlay")?.classList.remove("hidden");
-}
-
-function closeConfirm() {
-  document.getElementById("confirm-overlay")?.classList.add("hidden");
-  G.delId = null;
-}
-
-async function executeDelete() {
-  if (!G.delId) return;
-
-  try {
-    await api(`/api/admin/orders/${G.delId}`, "DELETE", null, true);
-    toast("Pedido eliminado.", "info");
-    closeConfirm();
-    closeModal();
-    await loadAdminData();
-  } catch (err) {
-    toast(err.message, "error");
-  }
-}
-
-function renderClientes(clients) {
-  const tbody = document.getElementById("clientes-tbody");
-  if (!tbody) return;
-
-  if (!clients.length) {
-    tbody.innerHTML = '<tr><td colspan="4" class="t-empty">No hay clientes registrados.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = clients.map(c => `
-    <tr>
-      <td>${esc(c.nombreCompleto || c.email)}</td>
-      <td>${esc(c.email || "—")}</td>
-      <td>${esc(c.telefono || "—")}</td>
-      <td style="text-align:center">${c.totalPedidos || 0}</td>
-    </tr>
-  `).join("");
-}
-
-/* =========================
-   SIDEBAR ADMIN
-========================= */
-function toggleSidebar() {
-  const s = document.getElementById("adm-sidebar");
-  const ov = document.getElementById("sidebar-overlay");
-
-  if (!s || !ov) return;
-
-  const isOpen = s.classList.toggle("open");
-
-  if (isOpen) {
-    ov.classList.remove("hidden");
-  } else {
-    ov.classList.add("hidden");
-  }
-}
-
-function closeSidebar() {
-  document.getElementById("adm-sidebar")?.classList.remove("open");
-  document.getElementById("sidebar-overlay")?.classList.add("hidden");
-}
-
-/* =========================
-   RESPONSIVE UI
-========================= */
-function initResponsive() {
-  window.addEventListener("resize", handleResize);
-  window.addEventListener("orientationchange", handleResize);
-
-  handleResize();
-  enableTableScroll();
-  updateViewportClasses();
-
-  document.querySelectorAll(".adm-nav-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      if (window.innerWidth < 900) {
-        closeSidebar();
-      }
-    });
-  });
-}
-
-function handleResize() {
-  const sidebar = document.getElementById("adm-sidebar");
-  const overlay = document.getElementById("sidebar-overlay");
-
-  updateViewportClasses();
-  enableTableScroll();
-
-  if (!sidebar || !overlay) return;
-
-  if (window.innerWidth >= 900) {
-    sidebar.classList.remove("open");
-    overlay.classList.add("hidden");
-  }
-}
-
-function updateViewportClasses() {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-
-  document.body.classList.remove("ui-mobile-small", "ui-mobile-large", "ui-tablet", "ui-desktop");
-
-  if (w <= 480) {
-    document.body.classList.add("ui-mobile-small");
-  } else if (w <= 900 && h <= 1000) {
-    document.body.classList.add("ui-mobile-large");
-  } else if (w <= 1200) {
-    document.body.classList.add("ui-tablet");
-  } else {
-    document.body.classList.add("ui-desktop");
-  }
-}
-
-function enableTableScroll() {
-  document.querySelectorAll(".tbl-wrap").forEach(wrap => {
-    wrap.style.overflowX = "auto";
-    wrap.style.webkitOverflowScrolling = "touch";
-  });
-}
-
-/* =========================
-   PHOTO VIEWER
-========================= */
-function createPhotoViewer() {
-  if (document.getElementById("photo-viewer-overlay")) return;
-
-  const overlay = document.createElement("div");
-  overlay.id = "photo-viewer-overlay";
-  overlay.className = "photo-viewer-overlay hidden";
-  overlay.innerHTML = `
-    <div class="photo-viewer-box">
-      <button id="photo-viewer-close" class="photo-viewer-close" aria-label="Cerrar imagen">✕</button>
-      <img id="photo-viewer-img" class="photo-viewer-img" src="" alt="Foto completa">
+    <div id="tracking-result" class="hidden">
+      <div class="info-card">
+        <p class="info-lbl">Id de Seguimiento:</p>
+        <p class="tracking-id-big" id="tr-id">#00001</p>
+        <p class="info-hint">con él puedes consultar tu status</p>
+      </div>
+      <div class="info-card">
+        <p class="info-lbl">Prenda:</p>
+        <p class="info-val" id="tr-prenda">—</p>
+        <p class="info-lbl" style="margin-top:.5rem">Cliente:</p>
+        <p class="info-val" id="tr-cliente">—</p>
+        <p class="info-lbl" style="margin-top:.5rem">Entrega estimada:</p>
+        <p class="info-val" id="tr-entrega">—</p>
+      </div>
+      <div class="info-card estado-card">
+        <p class="info-lbl">Estado:</p>
+        <p class="estado-big" id="tr-estado">—</p>
+      </div>
     </div>
-  `;
 
-  document.body.appendChild(overlay);
-}
+    <p id="tracking-empty" class="empty-msg">Ingresa tu ID para ver el estado de tu prenda.</p>
+  </div>
+</div>
 
-function openImageViewer(src, alt = "Foto completa") {
-  const overlay = document.getElementById("photo-viewer-overlay");
-  const img = document.getElementById("photo-viewer-img");
+<!-- MIS PRENDAS -->
+<div id="screen-mis-prendas" class="screen">
+  <div class="phone-wrap">
+    <div class="topbar-sm">
+      <button class="back-btn" onclick="goTo('screen-menu-client')">←</button>
+      <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
+        <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
+        <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
+        <path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="28" cy="8" r="3" fill="#e63329"/>
+      </svg>
+    </div>
 
-  if (!overlay || !img || !src) return;
+    <button class="mis-prendas-status-link" onclick="goTo('screen-estado-prenda')">
+      Consulta aquí el estado de tu prenda
+    </button>
 
-  img.src = src;
-  img.alt = alt;
-  overlay.classList.remove("hidden");
-  document.body.style.overflow = "hidden";
-}
+    <h2 class="screen-title">HISTORIAL DE PRENDAS</h2>
 
-function closeImageViewer() {
-  const overlay = document.getElementById("photo-viewer-overlay");
-  const img = document.getElementById("photo-viewer-img");
+    <div id="mis-prendas-list">
+      <p class="empty-msg">Cargando tus prendas…</p>
+    </div>
+  </div>
+</div>
 
-  if (!overlay || !img) return;
+<!-- NUEVA PRENDA -->
+<div id="screen-nueva-prenda" class="screen">
+  <div class="phone-wrap">
+    <div class="topbar-sm">
+      <button class="back-btn" onclick="goTo('screen-menu-client')">←</button>
+      <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
+        <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
+        <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
+        <path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="28" cy="8" r="3" fill="#e63329"/>
+      </svg>
+    </div>
 
-  overlay.classList.add("hidden");
-  img.src = "";
-  document.body.style.overflow = "";
-}
+    <div id="np-step1">
+      <h2 class="screen-title">REGISTRA TU PRENDA</h2>
+      <label class="field-lbl">Prenda:</label>
+      <input type="text" id="np-nombre" placeholder="ej. vestido largo azul" class="field solo"/>
+      <label class="field-lbl" style="margin-top:.75rem">Cantidad:</label>
+      <input type="number" id="np-cantidad" placeholder="1" class="field solo" min="1" value="1"/>
+      <label class="field-lbl" style="margin-top:.75rem">Escoge el material de tu prenda</label>
+      <div class="material-grid">
+        <button class="mat-btn" onclick="selectMaterial(this)">Algodón</button>
+        <button class="mat-btn" onclick="selectMaterial(this)">Lino</button>
+        <button class="mat-btn" onclick="selectMaterial(this)">Lana</button>
+        <button class="mat-btn" onclick="selectMaterial(this)">Seda</button>
+        <button class="mat-btn" onclick="selectMaterial(this)">Poliéster</button>
+        <button class="mat-btn" onclick="selectMaterial(this)">Nylon</button>
+      </div>
+      <button class="btn-dark full" style="margin-top:1.25rem" onclick="npContinuar()">Continuar</button>
+    </div>
 
-/* =========================
-   HELPERS
-========================= */
-function badgeHtml(Estado) {
-  const map = {
-    pendiente: ["b-pendiente", "⏳ Pendiente"],
-    en_proceso: ["b-en_proceso", "🔄 En proceso"],
-    planchado: ["b-planchado", "👔 Planchado"],
-    listo: ["b-listo", "✅ Listo"],
-    entregado: ["b-entregado", "🏠 Entregado"]
-  };
-  const [cls, label] = map[Estado] || ["b-pendiente", Estado || "—"];
-  return `<span class="badge ${cls}">${label}</span>`;
-}
+    <div id="np-step2" class="hidden">
+      <h2 class="screen-title">INSTRUCCIONES</h2>
+      <label class="field-lbl">Descripción / instrucciones especiales:</label>
+      <textarea id="np-instrucciones" class="textarea-field" placeholder="Manchas, cuidados especiales, condiciones de la prenda…"></textarea>
+      <label class="field-lbl" style="margin-top:.75rem">Fecha estimada de entrega:</label>
+      <input type="date" id="np-entrega" class="field solo"/>
+      <button class="btn-dark full" style="margin-top:1.25rem" onclick="npFinalizar()">Finalizar</button>
+      <button class="btn-outline full" style="margin-top:.5rem" onclick="npVolver()">← Regresar</button>
+    </div>
+  </div>
+</div>
 
-function estadoLabel(Estado) {
-  const labels = {
-    pendiente: "Pendiente",
-    en_proceso: "En proceso",
-    planchado: "Planchado",
-    listo: "Listo",
-    entregado: "Entregado"
-  };
-  return labels[Estado] || Estado || "—";
-}
+<!-- CUENTA CLIENTE -->
+<div id="screen-cuenta-cliente" class="screen">
+  <div class="phone-wrap">
+    <div class="topbar-sm">
+      <button class="back-btn" onclick="goTo('screen-menu-client')">←</button>
+      <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
+        <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
+        <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
+        <path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="28" cy="8" r="3" fill="#e63329"/>
+      </svg>
+    </div>
+    <h2 class="screen-title">CUENTA</h2>
+    <div class="cuenta-block">
+      <div class="cuenta-avatar-big">👤</div>
+      <p class="cuenta-name-big" id="cuenta-name">—</p>
+      <p class="cuenta-email-sm" id="cuenta-email">—</p>
+    </div>
+    <button class="btn-dark full" style="margin-top:2rem" onclick="clientLogout()">Cerrar sesión</button>
+  </div>
+</div>
 
-function esc(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
+<!-- POLÍTICAS -->
+<div id="screen-politicas" class="screen">
+  <div class="phone-wrap">
+    <div class="topbar-sm">
+      <button class="back-btn" onclick="goTo('screen-menu-client')">←</button>
+      <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
+        <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
+        <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
+        <path d="M35 20 L28 8" stroke="#e63329" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="28" cy="8" r="3" fill="#e63329"/>
+      </svg>
+    </div>
+    <h2 class="screen-title">POLÍTICA</h2>
+    <div class="politica-body">
+      <h4>1. Servicio</h4><p>Planchado Express ofrece servicio profesional de planchado para todo tipo de prendas de manera oportuna y de calidad.</p>
+      <h4>2. Entregas</h4><p>Las fechas de entrega son estimadas. Te notificaremos ante cualquier cambio en tu pedido.</p>
+      <h4>3. Responsabilidad</h4><p>No nos hacemos responsables de prendas que no sean recogidas después de 30 días naturales.</p>
+      <h4>4. Privacidad</h4><p>Tus datos son utilizados únicamente para gestionar tu servicio y no serán compartidos con terceros.</p>
+      <h4>5. Pagos</h4><p>El pago se realiza al momento de recoger la prenda. Aceptamos efectivo y transferencia bancaria.</p>
+    </div>
+  </div>
+</div>
 
-function val(id) {
-  return document.getElementById(id)?.value || "";
-}
+<!-- LOGIN ADMIN -->
+<div id="screen-login-admin" class="screen admin-bg">
+  <div class="phone-wrap">
+    <div class="topbar-sm admin-topbar-sm">
+      <button class="back-btn light" onclick="goTo('screen-splash')">←</button>
+      <svg class="iron-icon sm white-icon" viewBox="0 0 80 60" fill="none">
+        <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="white"/>
+        <rect x="26" y="40" width="36" height="6" rx="3" fill="white"/>
+        <path d="M35 20 L28 8" stroke="white" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="28" cy="8" r="3" fill="white"/>
+      </svg>
+    </div>
+    <div class="admin-login-box">
+      <div class="admin-badge-pill">MODO ADMINISTRADOR</div>
+      <h2 class="admin-title">Panel de Control</h2>
+      <p class="admin-subtitle">Acceso exclusivo — solo personal autorizado</p>
+      <label class="field-lbl light">Correo electrónico</label>
+      <input type="email" id="adm-email" placeholder="admin@planchadoexpress.com" class="field admin-field"/>
+      <label class="field-lbl light" style="margin-top:.75rem">Contraseña</label>
+      <div class="input-row">
+        <input type="password" id="adm-pass" placeholder="••••••••" class="field admin-field"/>
+        <button type="button" class="eye-btn light" data-toggle-pass="adm-pass">👁</button>
+      </div>
+      <button class="btn-red full" style="margin-top:1.25rem" onclick="loginAdmin()">Entrar al panel</button>
+    </div>
+  </div>
+</div>
 
-function setVal(id, value) {
-  const el = document.getElementById(id);
-  if (el) el.value = value;
-}
+<!-- PANEL ADMIN -->
+<div id="screen-admin" class="screen admin-layout-screen">
+  <aside class="adm-sidebar" id="adm-sidebar">
+    <div class="adm-sidebar-logo">
+      <svg class="iron-icon xs white-icon" viewBox="0 0 80 60" fill="none">
+        <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="white"/>
+        <rect x="26" y="40" width="36" height="6" rx="3" fill="white"/>
+        <path d="M35 20 L28 8" stroke="white" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="28" cy="8" r="3" fill="white"/>
+      </svg>
+      <span>Planchado Express</span>
+    </div>
 
-function setText(id, value) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = value;
-}
+    <nav class="adm-nav">
+      <button class="adm-nav-btn active" data-view="adm-view-dashboard" onclick="admNav(this)">📊 Dashboard</button>
+      <button class="adm-nav-btn" data-view="adm-view-pedidos" onclick="admNav(this)">📋 Pedidos</button>
+      <button class="adm-nav-btn" data-view="adm-view-nuevo" onclick="admNav(this);admOpenNew()">➕ Nuevo Pedido</button>
+      <button class="adm-nav-btn" data-view="adm-view-clientes" onclick="admNav(this)">👥 Clientes</button>
+    </nav>
 
-function today() {
-  return formatLocalDate(new Date());
-}
+    <button class="adm-logout" onclick="adminLogout()">⇠ Cerrar sesión</button>
+  </aside>
 
-function formatLocalDate(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+  <div class="adm-body">
+    <header class="adm-topbar">
+      <button class="hamburger-btn" type="button" aria-label="Abrir menú" onclick="toggleSidebar()">☰</button>
+      <h1 class="adm-topbar-title" id="adm-page-title">Dashboard</h1>
+      <div class="adm-user-pill" id="adm-user-pill">Admin</div>
+    </header>
 
-function aplicarLimitesFechaEntrega() {
-  const el = document.getElementById("np-entrega");
-  if (!el) return;
+    <div class="adm-content">
+      <div id="adm-view-dashboard" class="adm-view active-adm-view">
+        <div class="metrics-row">
+          <div class="metric-box c-red"><span class="mn" id="m-total">0</span><span class="ml">Total</span></div>
+          <div class="metric-box c-yellow"><span class="mn" id="m-pend">0</span><span class="ml">Pendientes</span></div>
+          <div class="metric-box c-blue"><span class="mn" id="m-proc">0</span><span class="ml">En proceso</span></div>
+          <div class="metric-box c-green"><span class="mn" id="m-list">0</span><span class="ml">Listos</span></div>
+          <div class="metric-box c-purple"><span class="mn" id="m-ent">0</span><span class="ml">Entregados</span></div>
+        </div>
 
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
+        <div class="adm-card">
+          <div class="adm-card-head">
+            <h3>Últimos pedidos</h3>
+            <button class="link-txt" onclick="admNavById('adm-view-pedidos')">Ver todos →</button>
+          </div>
+          <div class="tbl-wrap">
+            <table class="adm-tbl">
+              <thead>
+                <tr><th>ID</th><th>Cliente</th><th>Prenda</th><th>Ingreso</th><th>Estado</th><th></th></tr>
+              </thead>
+              <tbody id="dash-tbody">
+                <tr><td colspan="6" class="t-empty">Cargando…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
-  const minFecha = new Date(hoy);
-  const maxFecha = new Date(hoy);
-  maxFecha.setDate(maxFecha.getDate() + 30);
-  maxFecha.setHours(0, 0, 0, 0);
+      <div id="adm-view-pedidos" class="adm-view">
+        <div class="adm-filters-bar">
+          <input type="text" id="adm-search" class="adm-search-input" placeholder="🔍 Buscar cliente, prenda o ID…" oninput="applyFilters()"/>
+          <select id="adm-filter-st" class="adm-sel" onchange="applyFilters()">
+            <option value="">Todos los estados</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="en_proceso">En proceso</option>
+            <option value="planchado">Planchado</option>
+            <option value="listo">Listo para entrega</option>
+            <option value="entregado">Entregado</option>
+          </select>
+          <button class="btn-red" onclick="admNav(document.querySelector('[data-view=adm-view-nuevo]'));admOpenNew()">＋ Nuevo</button>
+        </div>
 
-  const minStr = formatLocalDate(minFecha);
-  const maxStr = formatLocalDate(maxFecha);
+        <div class="adm-card">
+          <div class="tbl-wrap">
+            <table class="adm-tbl">
+              <thead>
+                <tr><th>ID</th><th>Cliente</th><th>Prenda</th><th>Material</th><th>Cant.</th><th>Ingreso</th><th>Entrega</th><th>Estado</th><th>Acciones</th></tr>
+              </thead>
+              <tbody id="pedidos-tbody">
+                <tr><td colspan="9" class="t-empty">Cargando…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
-  el.setAttribute("min", minStr);
-  el.setAttribute("max", maxStr);
+      <div id="adm-view-nuevo" class="adm-view">
+        <div class="adm-card" style="max-width:660px">
+          <h3 id="adm-form-title" style="margin-bottom:1.25rem">Registrar nuevo pedido</h3>
+          <input type="hidden" id="adm-edit-id"/>
 
-  el.min = minStr;
-  el.max = maxStr;
+          <div class="form-section-lbl">Datos del cliente</div>
+          <div class="form-2col">
+            <div class="form-fld"><label>Nombre completo *</label><input type="text" id="adm-f-cliente" class="adm-input" placeholder="María González"/></div>
+            <div class="form-fld"><label>Teléfono</label><input type="tel" id="adm-f-telefono" class="adm-input" placeholder="55 1234 5678"/></div>
+          </div>
 
-  if (!el.value) {
-    el.value = minStr;
-    return;
-  }
+          <div class="form-section-lbl">Detalles de la prenda</div>
+          <div class="form-2col">
+            <div class="form-fld"><label>Nombre de la prenda *</label><input type="text" id="adm-f-prenda" class="adm-input" placeholder="ej. vestido largo azul"/></div>
+            <div class="form-fld"><label>Material</label>
+              <select id="adm-f-material" class="adm-input">
+                <option value="">Sin especificar</option>
+                <option>Algodón</option>
+                <option>Lino</option>
+                <option>Lana</option>
+                <option>Seda</option>
+                <option>Poliéster</option>
+                <option>Nylon</option>
+                <option>Otro</option>
+              </select>
+            </div>
+          </div>
 
-  const valor = new Date(`${el.value}T00:00:00`);
+          <div class="form-2col">
+            <div class="form-fld"><label>Cantidad *</label><input type="number" id="adm-f-cantidad" class="adm-input" min="1" placeholder="1"/></div>
+            <div class="form-fld"><label>Precio (MXN)</label><input type="number" id="adm-f-precio" class="adm-input" placeholder="120.00" step="0.50" min="0"/></div>
+          </div>
 
-  if (isNaN(valor.getTime()) || valor < minFecha) {
-    el.value = minStr;
-    return;
-  }
+          <div class="form-2col">
+            <div class="form-fld"><label>Fecha de ingreso *</label><input type="date" id="adm-f-ingreso" class="adm-input"/></div>
+            <div class="form-fld"><label>Entrega estimada *</label><input type="date" id="adm-f-entrega" class="adm-input"/></div>
+          </div>
 
-  if (valor > maxFecha) {
-    el.value = maxStr;
-  }
-}
+          <div class="form-fld full-fld">
+            <label>Instrucciones / notas</label>
+            <textarea id="adm-f-notas" class="adm-textarea" rows="3" placeholder="Manchas, cuidados especiales, condición de la prenda…"></textarea>
+          </div>
 
-function validarFechaEntregaInput() {
-  const el = document.getElementById("np-entrega");
-  if (!el) return;
+          <div class="form-fld full-fld" id="adm-status-row" style="display:none">
+            <label>Estado del pedido</label>
+            <select id="adm-f-estado" class="adm-input">
+              <option value="pendiente">Pendiente</option>
+              <option value="en_proceso">En proceso</option>
+              <option value="planchado">Planchado</option>
+              <option value="listo">Listo para entrega</option>
+              <option value="entregado">Entregado</option>
+            </select>
+          </div>
 
-  aplicarLimitesFechaEntrega();
+          <div class="form-actions-row">
+            <button class="btn-outline-dark" onclick="admNavById('adm-view-pedidos')">Cancelar</button>
+            <button class="btn-red" onclick="admSaveOrder()">💾 Guardar pedido</button>
+          </div>
+        </div>
+      </div>
 
-  if (!el.value) return;
+      <div id="adm-view-clientes" class="adm-view">
+        <div class="adm-card">
+          <h3 style="margin-bottom:1rem">Clientes registrados</h3>
+          <div class="tbl-wrap">
+            <table class="adm-tbl">
+              <thead>
+                <tr><th>Nombre</th><th>Correo</th><th>Teléfono</th><th>Pedidos</th></tr>
+              </thead>
+              <tbody id="clientes-tbody">
+                <tr><td colspan="4" class="t-empty">Cargando…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
+    </div>
+  </div>
+</div>
 
-  const minFecha = new Date(hoy);
-  const maxFecha = new Date(hoy);
-  maxFecha.setDate(maxFecha.getDate() + 30);
-  maxFecha.setHours(0, 0, 0, 0);
+<!-- MODAL DETALLE -->
+<div id="modal-overlay" class="modal-overlay hidden">
+  <div class="modal-box">
+    <div class="modal-hd">
+      <h3>Detalle del pedido</h3>
+      <button class="modal-x" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-bd" id="modal-bd"></div>
+    <div class="modal-ft">
+      <select id="modal-st-sel" class="adm-input" style="flex:1">
+        <option value="pendiente">Pendiente</option>
+        <option value="en_proceso">En proceso</option>
+        <option value="planchado">Planchado</option>
+        <option value="listo">Listo para entrega</option>
+        <option value="entregado">Entregado</option>
+      </select>
+      <button class="btn-outline-dark" onclick="admEditFromModal()">✏ Editar</button>
+      <button class="btn-red" onclick="admUpdateStatus()">Actualizar</button>
+    </div>
+  </div>
+</div>
 
-  const fechaSeleccionada = new Date(`${el.value}T00:00:00`);
+<!-- MODAL CONFIRMACIÓN -->
+<div id="confirm-overlay" class="modal-overlay hidden">
+  <div class="modal-box" style="max-width:360px">
+    <div class="modal-hd">
+      <h3>¿Eliminar pedido?</h3>
+      <button class="modal-x" onclick="closeConfirm()">✕</button>
+    </div>
+    <div class="modal-bd">
+      <p>Esta acción <strong>no se puede deshacer</strong>. ¿Confirmas?</p>
+    </div>
+    <div class="modal-ft">
+      <button class="btn-outline-dark" onclick="closeConfirm()">Cancelar</button>
+      <button class="btn-danger-red" onclick="executeDelete()">Sí, eliminar</button>
+    </div>
+  </div>
+</div>
 
-  if (fechaSeleccionada < minFecha) {
-    el.value = formatLocalDate(minFecha);
-    toast("En iPhone solo se permite fecha desde hoy.", "error");
-    return;
-  }
+<!-- MODAL VERIFICACIÓN DE REGISTRO -->
+<div id="verify-overlay" class="modal-overlay hidden">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-hd">
+      <h3>Verifica tu correo</h3>
+      <button class="modal-x" onclick="closeVerifyModal()">✕</button>
+    </div>
 
-  if (fechaSeleccionada > maxFecha) {
-    el.value = formatLocalDate(maxFecha);
-    toast("En iPhone solo se permite hasta 30 días después.", "error");
-    return;
-  }
-}
+    <div class="modal-bd">
+      <p id="ver-message" style="margin-bottom:14px;">
+        Ingresa el código que enviamos a tu correo.
+      </p>
 
-function fmtDate(value) {
-  if (!value) return "—";
+      <label class="field-lbl">Correo</label>
+      <input
+        type="email"
+        id="ver-email"
+        class="field solo"
+        readonly
+        placeholder="correo@ejemplo.com"
+        style="margin-bottom:12px;"
+      />
 
-  if (String(value).includes("T")) {
-    const d1 = new Date(value);
-    if (!isNaN(d1.getTime())) {
-      return d1.toLocaleDateString("es-MX", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit"
-      });
-    }
-  }
+      <label class="field-lbl">Código de verificación</label>
+      <input
+        type="text"
+        id="ver-code"
+        class="field solo"
+        placeholder="123456"
+        maxlength="6"
+        inputmode="numeric"
+      />
 
-  const d2 = new Date(`${value}T00:00:00`);
-  if (isNaN(d2.getTime())) return value;
+      <p class="form-hint" style="margin-top:12px;">
+        Revisa tu bandeja de entrada y también spam.
+      </p>
+    </div>
 
-  return d2.toLocaleDateString("es-MX", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  });
-}
+    <div class="modal-ft" style="display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn-outline-dark" onclick="resendRegisterCode()">Reenviar código</button>
+      <button class="btn-dark" onclick="verifyRegisterCode()">Verificar</button>
+    </div>
+  </div>
+</div>
 
-function toast(message, type = "info") {
-  let wrap = document.getElementById("toast-wrap");
+<!-- MODAL RECUPERAR CONTRASEÑA -->
+<div id="reset-overlay" class="modal-overlay hidden">
+  <div class="modal-box" style="max-width:440px">
+    <div class="modal-hd">
+      <h3>Recuperar contraseña</h3>
+      <button class="modal-x" onclick="closeResetPasswordModal()">✕</button>
+    </div>
 
-  if (!wrap) {
-    wrap = document.createElement("div");
-    wrap.id = "toast-wrap";
-    wrap.style.position = "fixed";
-    wrap.style.top = "16px";
-    wrap.style.right = "16px";
-    wrap.style.zIndex = "9999";
-    wrap.style.display = "flex";
-    wrap.style.flexDirection = "column";
-    wrap.style.gap = "10px";
-    document.body.appendChild(wrap);
-  }
+    <div class="modal-bd">
+      <p id="reset-message" style="margin-bottom:14px;">
+        Escribe tu correo para enviarte un código de recuperación.
+      </p>
 
-  const item = document.createElement("div");
-  item.textContent = message;
-  item.style.padding = "12px 16px";
-  item.style.borderRadius = "12px";
-  item.style.color = "#fff";
-  item.style.fontWeight = "600";
-  item.style.boxShadow = "0 10px 25px rgba(0,0,0,.18)";
-  item.style.maxWidth = "320px";
-  item.style.wordBreak = "break-word";
-  item.style.background =
-    type === "success" ? "#0f9d58" :
-    type === "error" ? "#d93025" :
-    "#3c4043";
+      <!-- PASO 1 -->
+      <div id="reset-step1">
+        <label class="field-lbl">Correo</label>
+        <input
+          type="email"
+          id="reset-email"
+          class="field solo"
+          placeholder="correo@ejemplo.com"
+        >
+      </div>
 
-  wrap.appendChild(item);
+      <!-- PASO 2 -->
+      <div id="reset-step2" class="hidden">
+        <label class="field-lbl">Correo</label>
+        <input
+          type="email"
+          id="reset-email"
+          class="field solo"
+          placeholder="correo@ejemplo.com"
+          readonly
+          style="margin-bottom:12px;"
+        >
 
-  setTimeout(() => {
-    item.style.opacity = "0";
-    item.style.transform = "translateY(-6px)";
-    item.style.transition = "all .25s ease";
-  }, 2800);
+        <label class="field-lbl">Código de recuperación</label>
+        <input
+          type="text"
+          id="reset-code"
+          class="field solo"
+          placeholder="123456"
+          maxlength="6"
+          inputmode="numeric"
+        >
+      </div>
 
-  setTimeout(() => {
-    item.remove();
-  }, 3200);
-}
+      <!-- PASO 3 -->
+      <div id="reset-step3" class="hidden">
+        <label class="field-lbl">Nueva contraseña</label>
+        <div class="input-row" style="margin-bottom:12px;">
+          <input type="password" id="reset-new-pass" placeholder="Nueva contraseña" class="field"/>
+          <button type="button" class="eye-btn" data-toggle-pass="reset-new-pass">👁</button>
+        </div>
+
+        <label class="field-lbl">Confirmar nueva contraseña</label>
+        <div class="input-row">
+          <input type="password" id="reset-confirm-pass" placeholder="Confirmar contraseña" class="field"/>
+          <button type="button" class="eye-btn" data-toggle-pass="reset-confirm-pass">👁</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-ft" style="display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn-outline-dark" onclick="closeResetPasswordModal()">Cancelar</button>
+      <button class="btn-outline-dark" onclick="resendPasswordResetCode()">Reenviar código</button>
+      <button class="btn-dark" onclick="requestPasswordResetCode()">Enviar código</button>
+      <button class="btn-dark" onclick="verifyPasswordResetCode()">Validar código</button>
+      <button class="btn-dark" onclick="confirmPasswordReset()">Guardar contraseña</button>
+    </div>
+  </div>
+</div>
+
+<!-- SIDEBAR OVERLAY -->
+<div id="sidebar-overlay" class="sidebar-ov hidden" onclick="closeSidebar()"></div>
+
+<!-- VISOR DE FOTO COMPLETA -->
+<div id="photo-viewer-overlay" class="photo-viewer-overlay hidden">
+  <div class="photo-viewer-box">
+    <button id="photo-viewer-close" class="photo-viewer-close" aria-label="Cerrar imagen">✕</button>
+    <img id="photo-viewer-img" class="photo-viewer-img" src="" alt="Foto completa">
+  </div>
+</div>
+
+<!-- MODAL CONFIRMACIÓN PEDIDO -->
+<div id="modal-confirmacion" class="modal-overlay hidden">
+  <div class="modal-box conf-modal-box">
+    <div class="modal-hd conf-modal-hd">
+      <h3>✅ ¡Pedido registrado!</h3>
+      <button class="modal-x" onclick="cerrarModalConfirmacion()" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-bd conf-modal-bd">
+      <div class="conf-folio-wrap">
+        <span class="conf-folio-lbl">Folio</span>
+        <span class="conf-folio-num" id="conf-folio">—</span>
+      </div>
+      <div class="conf-qr-wrap">
+        <canvas id="conf-qr-canvas"></canvas>
+        <p class="conf-qr-hint">Escanea este código para consultar tu pedido</p>
+      </div>
+      <div class="conf-datos-grid">
+        <div class="conf-dato">
+          <span class="conf-dato-lbl">📅 Fecha</span>
+          <span class="conf-dato-val" id="conf-fecha">—</span>
+        </div>
+        <div class="conf-dato">
+          <span class="conf-dato-lbl">🕐 Hora</span>
+          <span class="conf-dato-val" id="conf-hora">—</span>
+        </div>
+        <div class="conf-dato conf-dato-full conf-aviso-tiempo">
+          <span class="conf-aviso-icono">⏳</span>
+          <span class="conf-aviso-txt">Tu tiempo de entrega depende de las prendas en espera.<br>Cada prenda toma aprox. <strong>5 minutos</strong> en procesarse.</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn-dark" onclick="cerrarModalConfirmacion()">Entendido</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast-container"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -76,6 +76,11 @@
         <button type="button" class="eye-btn" data-toggle-pass="cl-pass">👁</button>
       </div>
       <button class="btn-dark full" onclick="loginClient()">Iniciar Sesión</button>
+
+      <p class="form-hint" style="margin-top:14px;">
+        <span class="link-span" onclick="openResetPasswordModal()">¿Olvidaste tu contraseña?</span>
+      </p>
+
       <p class="form-hint">¿No tienes cuenta? <span class="link-span" onclick="goTo('screen-register')">Regístrate</span></p>
     </div>
   </div>
@@ -564,7 +569,7 @@
   </div>
 </div>
 
-<!-- MODAL VERIFICACIÓN DE CÓDIGO -->
+<!-- MODAL VERIFICACIÓN DE REGISTRO -->
 <div id="verify-overlay" class="modal-overlay hidden">
   <div class="modal-box" style="max-width:420px">
     <div class="modal-hd">
@@ -605,6 +610,79 @@
     <div class="modal-ft" style="display:flex; gap:10px; flex-wrap:wrap;">
       <button class="btn-outline-dark" onclick="resendRegisterCode()">Reenviar código</button>
       <button class="btn-dark" onclick="verifyRegisterCode()">Verificar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL RECUPERAR CONTRASEÑA -->
+<div id="reset-overlay" class="modal-overlay hidden">
+  <div class="modal-box" style="max-width:440px">
+    <div class="modal-hd">
+      <h3>Recuperar contraseña</h3>
+      <button class="modal-x" onclick="closeResetPasswordModal()">✕</button>
+    </div>
+
+    <div class="modal-bd">
+      <p id="reset-message" style="margin-bottom:14px;">
+        Escribe tu correo para enviarte un código de recuperación.
+      </p>
+
+      <!-- PASO 1 -->
+      <div id="reset-step1">
+        <label class="field-lbl">Correo</label>
+        <input
+          type="email"
+          id="reset-email"
+          class="field solo"
+          placeholder="correo@ejemplo.com"
+        >
+      </div>
+
+      <!-- PASO 2 -->
+      <div id="reset-step2" class="hidden">
+        <label class="field-lbl">Correo</label>
+        <input
+          type="email"
+          id="reset-email"
+          class="field solo"
+          placeholder="correo@ejemplo.com"
+          readonly
+          style="margin-bottom:12px;"
+        >
+
+        <label class="field-lbl">Código de recuperación</label>
+        <input
+          type="text"
+          id="reset-code"
+          class="field solo"
+          placeholder="123456"
+          maxlength="6"
+          inputmode="numeric"
+        >
+      </div>
+
+      <!-- PASO 3 -->
+      <div id="reset-step3" class="hidden">
+        <label class="field-lbl">Nueva contraseña</label>
+        <div class="input-row" style="margin-bottom:12px;">
+          <input type="password" id="reset-new-pass" placeholder="Nueva contraseña" class="field"/>
+          <button type="button" class="eye-btn" data-toggle-pass="reset-new-pass">👁</button>
+        </div>
+
+        <label class="field-lbl">Confirmar nueva contraseña</label>
+        <div class="input-row">
+          <input type="password" id="reset-confirm-pass" placeholder="Confirmar contraseña" class="field"/>
+          <button type="button" class="eye-btn" data-toggle-pass="reset-confirm-pass">👁</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-ft" style="display:flex; gap:10px; flex-wrap:wrap;">
+      <button class="btn-outline-dark" onclick="closeResetPasswordModal()">Cancelar</button>
+      <button class="btn-outline-dark" onclick="resendPasswordResetCode()">Reenviar código</button>
+      <button class="btn-dark" onclick="requestPasswordResetCode()">Enviar código</button>
+      <button class="btn-dark" onclick="verifyPasswordResetCode()">Validar código</button>
+      <button class="btn-dark" onclick="confirmPasswordReset()">Guardar contraseña</button>
     </div>
   </div>
 </div>

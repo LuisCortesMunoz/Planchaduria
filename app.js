@@ -408,7 +408,7 @@ async function npFinalizar() {
   }
 
   try {
-    await api("/api/orders", "POST", {
+    const data = await api("/api/orders", "POST", {
       tipoPrenda: val("np-nombre").trim(),
       material: G.material,
       cantidad: parseInt(val("np-cantidad")) || 1,
@@ -416,12 +416,55 @@ async function npFinalizar() {
       notas: val("np-instrucciones").trim()
     }, true);
 
-    toast("Tu prenda fue registrada con éxito.", "success");
     resetNuevaPrenda();
     goTo("screen-menu-client");
+    mostrarModalConfirmacion(data);
   } catch (err) {
     toast(err.message, "error");
   }
+}
+
+function mostrarModalConfirmacion(data) {
+  const folio = (data.order && data.order.Folio) || data.Folio || data.folio || "—";
+  const ahora = new Date();
+
+  const fecha = ahora.toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" });
+  const hora  = ahora.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+
+  document.getElementById("conf-folio").textContent = folio;
+  document.getElementById("conf-fecha").textContent  = fecha;
+  document.getElementById("conf-hora").textContent   = hora;
+
+  // Generar QR usando la librería qrcode.js
+  const canvas = document.getElementById("conf-qr-canvas");
+  const tmpDiv = document.createElement("div");
+  try {
+    new QRCode(tmpDiv, {
+      text: String(folio),
+      width: 180,
+      height: 180,
+      colorDark: "#1a1a1a",
+      colorLight: "#f9f9f9",
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    setTimeout(function() {
+      const qrCanvas = tmpDiv.querySelector("canvas");
+      if (qrCanvas) {
+        canvas.width  = qrCanvas.width;
+        canvas.height = qrCanvas.height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(qrCanvas, 0, 0);
+      }
+    }, 150);
+  } catch(e) {
+    console.warn("QR no disponible:", e);
+  }
+
+  document.getElementById("modal-confirmacion").classList.remove("hidden");
+}
+
+function cerrarModalConfirmacion() {
+  document.getElementById("modal-confirmacion").classList.add("hidden");
 }
 
 /* =========================

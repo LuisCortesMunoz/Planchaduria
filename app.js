@@ -416,6 +416,8 @@ async function npFinalizar() {
       notas: val("np-instrucciones").trim()
     }, true);
 
+    console.log("Respuesta creación pedido:", data);
+
     resetNuevaPrenda();
     goTo("screen-menu-client");
     mostrarModalConfirmacion(data);
@@ -425,46 +427,84 @@ async function npFinalizar() {
 }
 
 function mostrarModalConfirmacion(data) {
-  const folio = (data.order && data.order.Folio) || data.Folio || data.folio || "—";
+  const order = data?.order || data?.pedido || data || {};
+
+  const folio =
+    order?.Folio ||
+    order?.folio ||
+    order?.folioActual ||
+    order?.numeroFolio ||
+    data?.Folio ||
+    data?.folio ||
+    data?.folioActual ||
+    data?.numeroFolio ||
+    "—";
+
   const ahora = new Date();
 
-  const fecha = ahora.toLocaleDateString("es-MX", { day: "2-digit", month: "long", year: "numeric" });
-  const hora  = ahora.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+  const fecha = ahora.toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric"
+  });
+
+  const hora = ahora.toLocaleTimeString("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 
   document.getElementById("conf-folio").textContent = folio;
-  document.getElementById("conf-fecha").textContent  = fecha;
-  document.getElementById("conf-hora").textContent   = hora;
+  document.getElementById("conf-fecha").textContent = fecha;
+  document.getElementById("conf-hora").textContent = hora;
 
-  // Generar QR usando la librería qrcode.js
   const canvas = document.getElementById("conf-qr-canvas");
-  const tmpDiv = document.createElement("div");
-  try {
-    new QRCode(tmpDiv, {
-      text: String(folio),
-      width: 180,
-      height: 180,
-      colorDark: "#1a1a1a",
-      colorLight: "#f9f9f9",
-      correctLevel: QRCode.CorrectLevel.M
-    });
-    setTimeout(function() {
-      const qrCanvas = tmpDiv.querySelector("canvas");
-      if (qrCanvas) {
-        canvas.width  = qrCanvas.width;
-        canvas.height = qrCanvas.height;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(qrCanvas, 0, 0);
-      }
-    }, 150);
-  } catch(e) {
-    console.warn("QR no disponible:", e);
+  if (canvas) {
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const tmpDiv = document.createElement("div");
+    tmpDiv.innerHTML = "";
+
+    try {
+      new QRCode(tmpDiv, {
+        text: String(folio).trim(),
+        width: 180,
+        height: 180,
+        colorDark: "#1a1a1a",
+        colorLight: "#f9f9f9",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+
+      setTimeout(() => {
+        const qrCanvas = tmpDiv.querySelector("canvas");
+        const qrImg = tmpDiv.querySelector("img");
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (qrCanvas) {
+          canvas.width = qrCanvas.width;
+          canvas.height = qrCanvas.height;
+          ctx.drawImage(qrCanvas, 0, 0);
+        } else if (qrImg) {
+          const img = new Image();
+          img.onload = () => {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+          };
+          img.src = qrImg.src;
+        }
+      }, 200);
+    } catch (e) {
+      console.warn("QR no disponible:", e);
+    }
   }
 
-  document.getElementById("modal-confirmacion").classList.remove("hidden");
+  document.getElementById("modal-confirmacion")?.classList.remove("hidden");
 }
 
 function cerrarModalConfirmacion() {
-  document.getElementById("modal-confirmacion").classList.add("hidden");
+  document.getElementById("modal-confirmacion")?.classList.add("hidden");
 }
 
 /* =========================

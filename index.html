@@ -230,15 +230,15 @@
       </svg>
     </div>
 
+    <button class="mis-prendas-status-link" onclick="goTo('screen-estado-prenda')">
+      Consulta aquí el estado de tu prenda
+    </button>
+
     <h2 class="screen-title">HISTORIAL DE PRENDAS</h2>
 
     <div id="mis-prendas-list">
       <p class="empty-msg">Cargando tus prendas…</p>
     </div>
-
-    <button class="mis-prendas-status-link" onclick="goTo('screen-estado-prenda')">
-      Consulta aquí el estado de tu prenda
-    </button>
   </div>
 </div>
 
@@ -575,9 +575,47 @@
   </div>
 </div>
 
+<!-- MODAL CONFIRMACIÓN PEDIDO -->
+<div id="modal-confirmacion" class="modal-overlay hidden">
+  <div class="modal-box conf-modal-box">
+    <div class="modal-hd conf-modal-hd">
+      <h3>✅ ¡Pedido registrado!</h3>
+      <button class="modal-x" onclick="cerrarModalConfirmacion()" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-bd conf-modal-bd">
+      <div class="conf-folio-wrap">
+        <span class="conf-folio-lbl">Folio</span>
+        <span class="conf-folio-num" id="conf-folio">—</span>
+      </div>
+      <div class="conf-qr-wrap">
+        <canvas id="conf-qr-canvas"></canvas>
+        <p class="conf-qr-hint">Escanea este código para consultar tu pedido</p>
+      </div>
+      <div class="conf-datos-grid">
+        <div class="conf-dato">
+          <span class="conf-dato-lbl">📅 Fecha</span>
+          <span class="conf-dato-val" id="conf-fecha">—</span>
+        </div>
+        <div class="conf-dato">
+          <span class="conf-dato-lbl">🕐 Hora</span>
+          <span class="conf-dato-val" id="conf-hora">—</span>
+        </div>
+        <div class="conf-dato conf-dato-full conf-aviso-tiempo">
+          <span class="conf-aviso-icono">⏳</span>
+          <span class="conf-aviso-txt">Tu tiempo de entrega depende de las prendas en espera.<br>Cada prenda toma aprox. <strong>5 minutos</strong> en procesarse.</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn-dark" onclick="cerrarModalConfirmacion()">Entendido</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div id="toast-container"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

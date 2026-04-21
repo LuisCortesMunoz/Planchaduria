@@ -33,6 +33,17 @@ document.addEventListener("change", e => {
   }
 });
 
+document.addEventListener("input", e => {
+  if (e.target && e.target.id === "reset-code") {
+    const code = e.target.value.replace(/\D/g, "").slice(0, 6);
+    e.target.value = code;
+
+    if (code.length === 6) {
+      verifyPasswordResetCode();
+    }
+  }
+});
+
 function bindModalClosers() {
   document.getElementById("modal-overlay")?.addEventListener("click", e => {
     if (e.target === document.getElementById("modal-overlay")) closeModal();
@@ -416,15 +427,13 @@ function clearPendingRegister() {
 function openResetPasswordModal(prefillEmail = "") {
   const email = prefillEmail || val("cl-email").trim() || G.pendingReset?.email || "";
 
-  if (document.getElementById("reset-overlay")) {
-    setVal("reset-email", email);
-    setVal("reset-code", "");
-    setVal("reset-new-pass", "");
-    setVal("reset-confirm-pass", "");
-    setResetMessage("Escribe tu correo para enviarte un código de recuperación.");
-    showResetStep(1);
-    document.getElementById("reset-overlay")?.classList.remove("hidden");
-  }
+  setVal("reset-email", email);
+  setVal("reset-code", "");
+  setVal("reset-new-pass", "");
+  setVal("reset-confirm-pass", "");
+  setResetMessage("Escribe tu correo para enviarte un código de recuperación.");
+  showResetStep(1);
+  document.getElementById("reset-overlay")?.classList.remove("hidden");
 }
 
 function closeResetPasswordModal() {
@@ -435,6 +444,10 @@ function showResetStep(n) {
   document.getElementById("reset-step1")?.classList.toggle("hidden", n !== 1);
   document.getElementById("reset-step2")?.classList.toggle("hidden", n !== 2);
   document.getElementById("reset-step3")?.classList.toggle("hidden", n !== 3);
+
+  document.getElementById("reset-actions-step1")?.classList.toggle("hidden", n !== 1);
+  document.getElementById("reset-actions-step2")?.classList.toggle("hidden", n !== 2);
+  document.getElementById("reset-actions-step3")?.classList.toggle("hidden", n !== 3);
 }
 
 function setResetMessage(message) {
@@ -477,6 +490,7 @@ async function requestPasswordResetCode() {
     });
 
     setVal("reset-email", email);
+    setVal("reset-code", "");
     setResetMessage(data.message || "Te enviamos un código de recuperación a tu correo.");
     showResetStep(2);
     toast(data.message || "Código enviado.", "success");
@@ -494,8 +508,7 @@ async function verifyPasswordResetCode() {
     return;
   }
 
-  if (!code) {
-    toast("Ingresa el código.", "error");
+  if (code.length !== 6) {
     return;
   }
 
@@ -529,6 +542,7 @@ async function resendPasswordResetCode() {
 
   try {
     const data = await api("/api/auth/resend-reset-code", "POST", { email });
+    setVal("reset-code", "");
     setResetMessage(data.message || "Te enviamos un nuevo código.");
     toast(data.message || "Código reenviado.", "success");
   } catch (err) {

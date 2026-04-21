@@ -627,29 +627,21 @@
         Escribe tu correo para enviarte un código de recuperación.
       </p>
 
-      <!-- PASO 1 -->
+      <label class="field-lbl">Correo</label>
+      <input
+        type="email"
+        id="reset-email"
+        class="field solo"
+        placeholder="correo@ejemplo.com"
+        style="margin-bottom:12px;"
+      >
+
+      <!-- PASO 1: pedir código -->
       <div id="reset-step1">
-        <label class="field-lbl">Correo</label>
-        <input
-          type="email"
-          id="reset-email"
-          class="field solo"
-          placeholder="correo@ejemplo.com"
-        >
       </div>
 
-      <!-- PASO 2 -->
+      <!-- PASO 2: escribir código -->
       <div id="reset-step2" class="hidden">
-        <label class="field-lbl">Correo</label>
-        <input
-          type="email"
-          id="reset-email"
-          class="field solo"
-          placeholder="correo@ejemplo.com"
-          readonly
-          style="margin-bottom:12px;"
-        >
-
         <label class="field-lbl">Código de recuperación</label>
         <input
           type="text"
@@ -658,10 +650,15 @@
           placeholder="123456"
           maxlength="6"
           inputmode="numeric"
+          autocomplete="one-time-code"
         >
+
+        <p class="form-hint" style="margin-top:12px;">
+          Cuando completes los 6 dígitos, el código se validará automáticamente.
+        </p>
       </div>
 
-      <!-- PASO 3 -->
+      <!-- PASO 3: nueva contraseña -->
       <div id="reset-step3" class="hidden">
         <label class="field-lbl">Nueva contraseña</label>
         <div class="input-row" style="margin-bottom:12px;">
@@ -677,11 +674,20 @@
       </div>
     </div>
 
-    <div class="modal-ft" style="display:flex; gap:10px; flex-wrap:wrap;">
+    <!-- FOOTER PASO 1 -->
+    <div id="reset-actions-step1" class="modal-ft" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+      <button class="btn-dark" onclick="requestPasswordResetCode()">Enviar código</button>
+    </div>
+
+    <!-- FOOTER PASO 2 -->
+    <div id="reset-actions-step2" class="modal-ft hidden" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between;">
       <button class="btn-outline-dark" onclick="closeResetPasswordModal()">Cancelar</button>
       <button class="btn-outline-dark" onclick="resendPasswordResetCode()">Reenviar código</button>
-      <button class="btn-dark" onclick="requestPasswordResetCode()">Enviar código</button>
-      <button class="btn-dark" onclick="verifyPasswordResetCode()">Validar código</button>
+    </div>
+
+    <!-- FOOTER PASO 3 -->
+    <div id="reset-actions-step3" class="modal-ft hidden" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between;">
+      <button class="btn-outline-dark" onclick="closeResetPasswordModal()">Cancelar</button>
       <button class="btn-dark" onclick="confirmPasswordReset()">Guardar contraseña</button>
     </div>
   </div>

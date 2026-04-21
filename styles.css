@@ -243,7 +243,7 @@ button, input, select, textarea {
 }
 
 .back-arrow {
-  font-size: 34px; /* tamaño de la flecha */
+  font-size: 45px; /* tamaño de la flecha */
   line-height: 1;
   font-weight: 700;
   color: var(--dark);

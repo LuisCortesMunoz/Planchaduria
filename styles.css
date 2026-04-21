@@ -223,6 +223,39 @@ button, input, select, textarea {
   color: rgba(255,255,255,.8);
 }
 
+/* NUEVO: botón regresar con texto */
+.topbar-back-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.back-btn-labeled {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.back-arrow {
+  font-size: 34px; /* tamaño de la flecha */
+  line-height: 1;
+  font-weight: 700;
+  color: var(--dark);
+}
+
+.back-text {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--dark);
+}
+
 /* ══════════════════════════════════════════════
    FORM CARD
 ══════════════════════════════════════════════ */

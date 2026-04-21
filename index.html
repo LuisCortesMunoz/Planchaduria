@@ -57,11 +57,11 @@
 <div id="screen-login-client" class="screen">
   <div class="phone-wrap">
     <div class="topbar-sm topbar-back-group">
-      <button class="back-btn back-btn-labeled" onclick="goTo('screen-menu-client')">
+      <button class="back-btn back-btn-labeled" onclick="goTo('screen-splash')">
         <span class="back-arrow">←</span>
         <span class="back-text">Regresar</span>
       </button>
-    
+
       <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
         <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
         <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
@@ -69,6 +69,7 @@
         <circle cx="28" cy="8" r="3" fill="#e63329"/>
       </svg>
     </div>
+
     <div class="form-card">
       <h2 class="form-title">Iniciar Sesión</h2>
       <div class="input-row">
@@ -94,11 +95,11 @@
 <div id="screen-register" class="screen">
   <div class="phone-wrap">
     <div class="topbar-sm topbar-back-group">
-      <button class="back-btn back-btn-labeled" onclick="goTo('screen-menu-client')">
+      <button class="back-btn back-btn-labeled" onclick="goTo('screen-splash')">
         <span class="back-arrow">←</span>
         <span class="back-text">Regresar</span>
       </button>
-    
+
       <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
         <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
         <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
@@ -106,6 +107,7 @@
         <circle cx="28" cy="8" r="3" fill="#e63329"/>
       </svg>
     </div>
+
     <div class="form-card">
       <h2 class="form-title">Nueva Cuenta</h2>
       <p class="form-subtitle">Crea una cuenta para continuar</p>
@@ -129,7 +131,6 @@
 <!-- MENÚ PRINCIPAL CLIENTE -->
 <div id="screen-menu-client" class="screen">
   <div class="phone-wrap">
-
     <div class="topbar-sm center">
       <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
         <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
@@ -149,7 +150,6 @@
     </button>
 
     <div class="menu-grid">
-
       <button class="menu-tile" onclick="goTo('screen-mis-prendas');loadMisPrendas()">
         <div class="tile-icon">
           <svg viewBox="0 0 48 48" fill="none" width="40" height="40">
@@ -172,7 +172,6 @@
         </div>
         <span>Cuenta</span>
       </button>
-
     </div>
 
     <button class="menu-policy-link" onclick="goTo('screen-politicas')">
@@ -180,15 +179,18 @@
     </button>
 
     <button class="logout-link-btn" onclick="clientLogout()">Cerrar sesión</button>
-
   </div>
 </div>
 
 <!-- ESTADO DE PRENDA -->
 <div id="screen-estado-prenda" class="screen">
   <div class="phone-wrap">
-    <div class="topbar-sm">
-      <button class="back-btn" onclick="goTo('screen-mis-prendas');loadMisPrendas()">←</button>
+    <div class="topbar-sm topbar-back-group">
+      <button class="back-btn back-btn-labeled" onclick="goTo('screen-mis-prendas');loadMisPrendas()">
+        <span class="back-arrow">←</span>
+        <span class="back-text">Regresar</span>
+      </button>
+
       <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
         <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
         <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
@@ -196,6 +198,7 @@
         <circle cx="28" cy="8" r="3" fill="#e63329"/>
       </svg>
     </div>
+
     <h2 class="screen-title">ESTADO DE PRENDA</h2>
 
     <div class="tracking-box">
@@ -233,8 +236,12 @@
 <!-- MIS PRENDAS -->
 <div id="screen-mis-prendas" class="screen">
   <div class="phone-wrap">
-    <div class="topbar-sm">
-      <button class="back-btn" onclick="goTo('screen-menu-client')">←</button>
+    <div class="topbar-sm topbar-back-group">
+      <button class="back-btn back-btn-labeled" onclick="goTo('screen-menu-client')">
+        <span class="back-arrow">←</span>
+        <span class="back-text">Regresar</span>
+      </button>
+
       <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
         <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
         <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
@@ -258,8 +265,12 @@
 <!-- NUEVA PRENDA -->
 <div id="screen-nueva-prenda" class="screen">
   <div class="phone-wrap">
-    <div class="topbar-sm">
-      <button class="back-btn" onclick="goTo('screen-menu-client')">←</button>
+    <div class="topbar-sm topbar-back-group">
+      <button class="back-btn back-btn-labeled" onclick="goTo('screen-menu-client')">
+        <span class="back-arrow">←</span>
+        <span class="back-text">Regresar</span>
+      </button>
+
       <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
         <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
         <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
@@ -301,8 +312,12 @@
 <!-- CUENTA CLIENTE -->
 <div id="screen-cuenta-cliente" class="screen">
   <div class="phone-wrap">
-    <div class="topbar-sm">
-      <button class="back-btn" onclick="goTo('screen-menu-client')">←</button>
+    <div class="topbar-sm topbar-back-group">
+      <button class="back-btn back-btn-labeled" onclick="goTo('screen-menu-client')">
+        <span class="back-arrow">←</span>
+        <span class="back-text">Regresar</span>
+      </button>
+
       <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
         <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
         <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
@@ -310,6 +325,7 @@
         <circle cx="28" cy="8" r="3" fill="#e63329"/>
       </svg>
     </div>
+
     <h2 class="screen-title">CUENTA</h2>
     <div class="cuenta-block">
       <div class="cuenta-avatar-big">👤</div>
@@ -323,8 +339,12 @@
 <!-- POLÍTICAS -->
 <div id="screen-politicas" class="screen">
   <div class="phone-wrap">
-    <div class="topbar-sm">
-      <button class="back-btn" onclick="goTo('screen-menu-client')">←</button>
+    <div class="topbar-sm topbar-back-group">
+      <button class="back-btn back-btn-labeled" onclick="goTo('screen-menu-client')">
+        <span class="back-arrow">←</span>
+        <span class="back-text">Regresar</span>
+      </button>
+
       <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
         <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
         <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
@@ -332,6 +352,7 @@
         <circle cx="28" cy="8" r="3" fill="#e63329"/>
       </svg>
     </div>
+
     <h2 class="screen-title">POLÍTICA</h2>
     <div class="politica-body">
       <h4>1. Servicio</h4><p>Planchado Express ofrece servicio profesional de planchado para todo tipo de prendas de manera oportuna y de calidad.</p>
@@ -355,6 +376,7 @@
         <circle cx="28" cy="8" r="3" fill="white"/>
       </svg>
     </div>
+
     <div class="admin-login-box">
       <div class="admin-badge-pill">MODO ADMINISTRADOR</div>
       <h2 class="admin-title">Panel de Control</h2>
@@ -533,7 +555,6 @@
           </div>
         </div>
       </div>
-
     </div>
   </div>
 </div>
@@ -644,11 +665,8 @@
         style="margin-bottom:12px;"
       >
 
-      <!-- PASO 1: pedir código -->
-      <div id="reset-step1">
-      </div>
+      <div id="reset-step1"></div>
 
-      <!-- PASO 2: escribir código -->
       <div id="reset-step2" class="hidden">
         <label class="field-lbl">Código de recuperación</label>
         <input
@@ -666,7 +684,6 @@
         </p>
       </div>
 
-      <!-- PASO 3: nueva contraseña -->
       <div id="reset-step3" class="hidden">
         <label class="field-lbl">Nueva contraseña</label>
         <div class="input-row" style="margin-bottom:12px;">
@@ -682,18 +699,15 @@
       </div>
     </div>
 
-    <!-- FOOTER PASO 1 -->
     <div id="reset-actions-step1" class="modal-ft" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
       <button class="btn-dark" onclick="requestPasswordResetCode()">Enviar código</button>
     </div>
 
-    <!-- FOOTER PASO 2 -->
     <div id="reset-actions-step2" class="modal-ft hidden" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between;">
       <button class="btn-outline-dark" onclick="closeResetPasswordModal()">Cancelar</button>
       <button class="btn-outline-dark" onclick="resendPasswordResetCode()">Reenviar código</button>
     </div>
 
-    <!-- FOOTER PASO 3 -->
     <div id="reset-actions-step3" class="modal-ft hidden" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between;">
       <button class="btn-outline-dark" onclick="closeResetPasswordModal()">Cancelar</button>
       <button class="btn-dark" onclick="confirmPasswordReset()">Guardar contraseña</button>

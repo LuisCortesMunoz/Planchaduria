@@ -20,6 +20,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindModalClosers();
   bindPasswordToggles();
   createPhotoViewer();
+  createQRModal();
   initResponsive();
   aplicarLimitesFechaEntrega();
   restorePendingRegister();
@@ -86,6 +87,12 @@ function bindModalClosers() {
     if (e.target.closest("#photo-viewer-close")) {
       closeImageViewer();
     }
+
+    // Cerrar modal QR al hacer clic fuera
+    const qrOverlay = document.getElementById("qr-modal-overlay");
+    if (qrOverlay && e.target === qrOverlay) {
+      closeQRModal();
+    }
   });
 
   document.addEventListener("keydown", e => {
@@ -96,6 +103,7 @@ function bindModalClosers() {
       closeImageViewer();
       closeVerifyModal();
       closeResetPasswordModal();
+      closeQRModal();
     }
   });
 }
@@ -804,6 +812,71 @@ async function npFinalizar() {
   }
 }
 
+/* =========================
+   CAMBIO 1: QR CON FONDO BLANCO FIJO
+   Se fuerza fondo blanco en el canvas y su contenedor
+   para que sea escaneable en modo oscuro.
+========================= */
+function renderQREnCanvas(canvas, folio) {
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  canvas.width = 180;
+  canvas.height = 180;
+
+  // Fondo blanco fijo (independiente del tema del dispositivo)
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const tmpDiv = document.createElement("div");
+  tmpDiv.style.position = "absolute";
+  tmpDiv.style.left = "-9999px";
+  document.body.appendChild(tmpDiv);
+
+  try {
+    new QRCode(tmpDiv, {
+      text: String(folio).trim(),
+      width: 180,
+      height: 180,
+      colorDark: "#1a1a1a",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.M
+    });
+
+    setTimeout(() => {
+      const qrCanvas = tmpDiv.querySelector("canvas");
+      const qrImg = tmpDiv.querySelector("img");
+
+      // Redibujar sobre fondo blanco
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (qrCanvas) {
+        canvas.width = qrCanvas.width;
+        canvas.height = qrCanvas.height;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(qrCanvas, 0, 0);
+      } else if (qrImg) {
+        const img = new Image();
+        img.onload = () => {
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0);
+        };
+        img.src = qrImg.src;
+      }
+
+      document.body.removeChild(tmpDiv);
+    }, 200);
+  } catch (e) {
+    console.warn("QR no disponible:", e);
+    try { document.body.removeChild(tmpDiv); } catch (_) {}
+  }
+}
+
 function mostrarModalConfirmacion(data) {
   const order = data?.order || data?.pedido || data || {};
 
@@ -832,58 +905,82 @@ function mostrarModalConfirmacion(data) {
   document.getElementById("conf-hora").textContent = hora;
 
   const canvas = document.getElementById("conf-qr-canvas");
+
+  // Aplicar fondo blanco al contenedor del canvas también
+  const qrWrap = canvas?.closest(".conf-qr-wrap");
+  if (qrWrap) {
+    qrWrap.style.background = "#ffffff";
+    qrWrap.style.padding = "12px";
+    qrWrap.style.borderRadius = "8px";
+    qrWrap.style.display = "inline-block";
+  }
+
   if (!canvas) {
     document.getElementById("modal-confirmacion")?.classList.remove("hidden");
     return;
   }
 
-  const ctx = canvas.getContext("2d");
-  canvas.width = 180;
-  canvas.height = 180;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  const tmpDiv = document.createElement("div");
-  tmpDiv.innerHTML = "";
-
-  try {
-    new QRCode(tmpDiv, {
-      text: String(folio).trim(),
-      width: 180,
-      height: 180,
-      colorDark: "#1a1a1a",
-      colorLight: "#f9f9f9",
-      correctLevel: QRCode.CorrectLevel.M
-    });
-
-    setTimeout(() => {
-      const qrCanvas = tmpDiv.querySelector("canvas");
-      const qrImg = tmpDiv.querySelector("img");
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      if (qrCanvas) {
-        canvas.width = qrCanvas.width;
-        canvas.height = qrCanvas.height;
-        ctx.drawImage(qrCanvas, 0, 0);
-      } else if (qrImg) {
-        const img = new Image();
-        img.onload = () => {
-          canvas.width = img.width;
-          canvas.height = img.height;
-          ctx.drawImage(img, 0, 0);
-        };
-        img.src = qrImg.src;
-      }
-    }, 200);
-  } catch (e) {
-    console.warn("QR no disponible:", e);
-  }
+  // Usar la función centralizada de renderizado de QR
+  renderQREnCanvas(canvas, folio);
 
   document.getElementById("modal-confirmacion")?.classList.remove("hidden");
 }
 
 function cerrarModalConfirmacion() {
   document.getElementById("modal-confirmacion")?.classList.add("hidden");
+}
+
+/* =========================
+   CAMBIO 2: MODAL QR REUTILIZABLE
+   Para ver el QR de cualquier pedido desde Mis Prendas
+========================= */
+function createQRModal() {
+  if (document.getElementById("qr-modal-overlay")) return;
+
+  const overlay = document.createElement("div");
+  overlay.id = "qr-modal-overlay";
+  overlay.className = "modal-overlay hidden";
+  overlay.innerHTML = `
+    <div class="modal-box" style="max-width:320px; text-align:center;">
+      <div class="modal-hd">
+        <h3>Código QR del pedido</h3>
+        <button class="modal-x" onclick="closeQRModal()" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modal-bd" style="display:flex; flex-direction:column; align-items:center; gap:12px; padding:16px 0;">
+        <p id="qr-modal-folio" style="font-weight:700; font-size:1.1rem; letter-spacing:.05em;"></p>
+        <div id="qr-modal-canvas-wrap" style="background:#ffffff; padding:12px; border-radius:8px; display:inline-block;">
+          <canvas id="qr-modal-canvas"></canvas>
+        </div>
+        <p style="font-size:.78rem; color:#888; margin:0;">Escanea este código para consultar tu pedido</p>
+      </div>
+      <div class="modal-ft" style="justify-content:center;">
+        <button class="btn-dark" onclick="closeQRModal()">Cerrar</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+}
+
+function abrirQRPedido(folio) {
+  if (!folio || folio === "—") {
+    toast("No hay folio disponible para este pedido.", "error");
+    return;
+  }
+
+  const overlay = document.getElementById("qr-modal-overlay");
+  if (!overlay) return;
+
+  setText("qr-modal-folio", folio);
+
+  const canvas = document.getElementById("qr-modal-canvas");
+  renderQREnCanvas(canvas, folio);
+
+  overlay.classList.remove("hidden");
+}
+
+function closeQRModal() {
+  document.getElementById("qr-modal-overlay")?.classList.add("hidden");
 }
 
 /* =========================
@@ -1015,6 +1112,9 @@ async function loadMisPrendas() {
     }
 
     list.innerHTML = pedidos.map(p => {
+      const folio = esc(p.Folio || p.folio || "");
+      const folioRaw = String(p.Folio || p.folio || "").trim();
+
       const fotos = Array.isArray(p.fotos) ? p.fotos : [];
       const fotosHtml = fotos.length
         ? `
@@ -1027,7 +1127,7 @@ async function loadMisPrendas() {
                     src="${fullSrc}"
                     data-fullsrc="${fullSrc}"
                     class="clickable-photo"
-                    alt="Foto ${esc(p.Folio)}"
+                    alt="Foto ${folio}"
                     loading="lazy"
                     referrerpolicy="no-referrer"
                   >
@@ -1039,6 +1139,40 @@ async function loadMisPrendas() {
         `
         : `<p class="sin-fotos">Aún no hay fotos para este pedido.</p>`;
 
+      // CAMBIO 2: Botón para ver QR del pedido
+      const qrBtnHtml = folioRaw
+        ? `<button
+             class="btn-qr-pedido"
+             onclick="abrirQRPedido('${folioRaw.replace(/'/g, "\\'")}')"
+             title="Ver QR del pedido"
+             style="
+               display:inline-flex;
+               align-items:center;
+               gap:6px;
+               margin-top:10px;
+               padding:7px 14px;
+               background:transparent;
+               border:1.5px solid #e63329;
+               color:#e63329;
+               border-radius:8px;
+               font-size:.8rem;
+               font-weight:600;
+               cursor:pointer;
+               transition:background .15s, color .15s;
+             "
+             onmouseover="this.style.background='#e63329';this.style.color='#fff'"
+             onmouseout="this.style.background='transparent';this.style.color='#e63329'"
+           >
+             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+               <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+               <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/>
+               <rect x="19" y="14" width="2" height="2"/><rect x="14" y="19" width="2" height="2"/>
+               <rect x="17" y="17" width="2" height="5"/><rect x="19" y="19" width="4" height="2"/>
+             </svg>
+             Ver QR
+           </button>`
+        : "";
+
       return `
         <div class="prenda-item pedido-card-col">
           <div class="prenda-item-top">
@@ -1047,9 +1181,10 @@ async function loadMisPrendas() {
               <span class="prenda-item-sub">${fmtDate(p.fechaIngreso)} · ${esc(p.material || "")} · ${p.cantidad} pza.</span>
               <span>${badgeHtml(p.Estado)}</span>
             </div>
-            <span class="prenda-item-id">${esc(p.Folio || "")}</span>
+            <span class="prenda-item-id">${folio}</span>
           </div>
           ${fotosHtml}
+          ${qrBtnHtml}
         </div>
       `;
     }).join("");
@@ -1799,5 +1934,3 @@ function toast(message, type = "info") {
     item.remove();
   }, 3200);
 }
-
-

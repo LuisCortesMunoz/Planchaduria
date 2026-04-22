@@ -813,70 +813,144 @@ async function npFinalizar() {
 }
 
 /* =========================
-   CAMBIO 1: QR CON FONDO BLANCO FIJO
-   Se fuerza fondo blanco en el canvas y su contenedor
-   para que sea escaneable en modo oscuro.
+   QR: UTILIDADES DE BLINDAJE VISUAL
+========================= */
+function aplicarBlindajeVisualQR(elemento) {
+  if (!elemento) return;
+
+  elemento.classList.add("qr-safe-box");
+  elemento.setAttribute("data-qr-safe", "true");
+
+  elemento.style.background = "#ffffff";
+  elemento.style.color = "#000000";
+  elemento.style.filter = "none";
+  elemento.style.webkitFilter = "none";
+  elemento.style.mixBlendMode = "normal";
+  elemento.style.webkitPrintColorAdjust = "exact";
+  elemento.style.printColorAdjust = "exact";
+  elemento.style.forcedColorAdjust = "none";
+  elemento.style.webkitForcedColorAdjust = "none";
+  elemento.style.colorScheme = "light";
+}
+
+function generarImagenQRDesdeCanvas(canvas) {
+  if (!canvas) return null;
+
+  try {
+    return canvas.toDataURL("image/png");
+  } catch {
+    return null;
+  }
+}
+
+/* =========================
+   QR CENTRALIZADO Y BLINDADO
 ========================= */
 function renderQREnCanvas(canvas, folio) {
   if (!canvas) return;
 
-  const ctx = canvas.getContext("2d");
-  canvas.width = 180;
-  canvas.height = 180;
+  const size = 180;
+  const textoQR = String(folio || "").trim();
 
-  // Fondo blanco fijo (independiente del tema del dispositivo)
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  canvas.width = size;
+  canvas.height = size;
 
-  const tmpDiv = document.createElement("div");
-  tmpDiv.style.position = "absolute";
-  tmpDiv.style.left = "-9999px";
-  document.body.appendChild(tmpDiv);
+  aplicarBlindajeVisualQR(canvas);
+
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return;
+
+  ctx.save();
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillRect(0, 0, size, size);
+  ctx.restore();
+
+  const tempWrap = document.createElement("div");
+  tempWrap.style.position = "fixed";
+  tempWrap.style.left = "-99999px";
+  tempWrap.style.top = "0";
+  tempWrap.style.width = `${size}px`;
+  tempWrap.style.height = `${size}px`;
+  tempWrap.style.background = "#FFFFFF";
+  tempWrap.style.padding = "0";
+  tempWrap.style.margin = "0";
+  tempWrap.style.opacity = "0";
+  tempWrap.style.pointerEvents = "none";
+  tempWrap.style.zIndex = "-1";
+  aplicarBlindajeVisualQR(tempWrap);
+  document.body.appendChild(tempWrap);
 
   try {
-    new QRCode(tmpDiv, {
-      text: String(folio).trim(),
-      width: 180,
-      height: 180,
-      colorDark: "#1a1a1a",
-      colorLight: "#ffffff",
-      correctLevel: QRCode.CorrectLevel.M
+    new QRCode(tempWrap, {
+      text: textoQR,
+      width: size,
+      height: size,
+      colorDark: "#000000",
+      colorLight: "#FFFFFF",
+      correctLevel: QRCode.CorrectLevel.H
     });
 
-    setTimeout(() => {
-      const qrCanvas = tmpDiv.querySelector("canvas");
-      const qrImg = tmpDiv.querySelector("img");
+    const dibujarQR = () => {
+      const qrCanvas = tempWrap.querySelector("canvas");
+      const qrImg = tempWrap.querySelector("img");
 
-      // Redibujar sobre fondo blanco
-      ctx.fillStyle = "#ffffff";
+      ctx.save();
+      ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       if (qrCanvas) {
-        canvas.width = qrCanvas.width;
-        canvas.height = qrCanvas.height;
-        ctx.fillStyle = "#ffffff";
+        canvas.width = qrCanvas.width || size;
+        canvas.height = qrCanvas.height || size;
+        aplicarBlindajeVisualQR(canvas);
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#FFFFFF";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(qrCanvas, 0, 0);
+
+        const dataUrl = generarImagenQRDesdeCanvas(canvas);
+        if (dataUrl) {
+          canvas.dataset.qrPng = dataUrl;
+        }
       } else if (qrImg) {
         const img = new Image();
         img.onload = () => {
-          canvas.width = img.width;
-          canvas.height = img.height;
-          ctx.fillStyle = "#ffffff";
+          canvas.width = img.width || size;
+          canvas.height = img.height || size;
+          aplicarBlindajeVisualQR(canvas);
+
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = "#FFFFFF";
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(img, 0, 0);
+
+          const dataUrl = generarImagenQRDesdeCanvas(canvas);
+          if (dataUrl) {
+            canvas.dataset.qrPng = dataUrl;
+          }
         };
         img.src = qrImg.src;
       }
 
-      document.body.removeChild(tmpDiv);
-    }, 200);
+      ctx.restore();
+
+      try {
+        document.body.removeChild(tempWrap);
+      } catch {}
+    };
+
+    setTimeout(dibujarQR, 120);
   } catch (e) {
     console.warn("QR no disponible:", e);
-    try { document.body.removeChild(tmpDiv); } catch (_) {}
+    try {
+      document.body.removeChild(tempWrap);
+    } catch {}
   }
 }
 
+/* =========================
+   MODAL DE CONFIRMACIÓN AL REGISTRAR PRENDA
+========================= */
 function mostrarModalConfirmacion(data) {
   const order = data?.order || data?.pedido || data || {};
 
@@ -906,13 +980,14 @@ function mostrarModalConfirmacion(data) {
 
   const canvas = document.getElementById("conf-qr-canvas");
 
-  // Aplicar fondo blanco al contenedor del canvas también
   const qrWrap = canvas?.closest(".conf-qr-wrap");
   if (qrWrap) {
+    qrWrap.classList.add("qr-safe-box");
     qrWrap.style.background = "#ffffff";
     qrWrap.style.padding = "12px";
     qrWrap.style.borderRadius = "8px";
     qrWrap.style.display = "inline-block";
+    aplicarBlindajeVisualQR(qrWrap);
   }
 
   if (!canvas) {
@@ -920,7 +995,6 @@ function mostrarModalConfirmacion(data) {
     return;
   }
 
-  // Usar la función centralizada de renderizado de QR
   renderQREnCanvas(canvas, folio);
 
   document.getElementById("modal-confirmacion")?.classList.remove("hidden");
@@ -931,8 +1005,7 @@ function cerrarModalConfirmacion() {
 }
 
 /* =========================
-   CAMBIO 2: MODAL QR REUTILIZABLE
-   Para ver el QR de cualquier pedido desde Mis Prendas
+   MODAL QR REUTILIZABLE
 ========================= */
 function createQRModal() {
   if (document.getElementById("qr-modal-overlay")) return;
@@ -948,7 +1021,7 @@ function createQRModal() {
       </div>
       <div class="modal-bd" style="display:flex; flex-direction:column; align-items:center; gap:12px; padding:16px 0;">
         <p id="qr-modal-folio" style="font-weight:700; font-size:1.1rem; letter-spacing:.05em;"></p>
-        <div id="qr-modal-canvas-wrap" style="background:#ffffff; padding:12px; border-radius:8px; display:inline-block;">
+        <div id="qr-modal-canvas-wrap" class="qr-safe-box" style="background:#ffffff; padding:12px; border-radius:8px; display:inline-block;">
           <canvas id="qr-modal-canvas"></canvas>
         </div>
         <p style="font-size:.78rem; color:#888; margin:0;">Escanea este código para consultar tu pedido</p>
@@ -960,6 +1033,11 @@ function createQRModal() {
   `;
 
   document.body.appendChild(overlay);
+
+  const wrap = document.getElementById("qr-modal-canvas-wrap");
+  const canvas = document.getElementById("qr-modal-canvas");
+  aplicarBlindajeVisualQR(wrap);
+  aplicarBlindajeVisualQR(canvas);
 }
 
 function abrirQRPedido(folio) {
@@ -974,6 +1052,10 @@ function abrirQRPedido(folio) {
   setText("qr-modal-folio", folio);
 
   const canvas = document.getElementById("qr-modal-canvas");
+  const wrap = document.getElementById("qr-modal-canvas-wrap");
+  aplicarBlindajeVisualQR(wrap);
+  aplicarBlindajeVisualQR(canvas);
+
   renderQREnCanvas(canvas, folio);
 
   overlay.classList.remove("hidden");
@@ -1139,7 +1221,6 @@ async function loadMisPrendas() {
         `
         : `<p class="sin-fotos">Aún no hay fotos para este pedido.</p>`;
 
-      // CAMBIO 2: Botón para ver QR del pedido
       const qrBtnHtml = folioRaw
         ? `<button
              class="btn-qr-pedido"
@@ -1194,315 +1275,141 @@ async function loadMisPrendas() {
 }
 
 async function buscarPedido() {
-  const folio = val("tracking-input").trim().toUpperCase();
-
-  if (!folio) {
-    toast("Ingresa un ID de seguimiento.", "error");
+  const raw = val("tracking-input").trim();
+  if (!raw) {
+    toast("Ingresa un ID.", "error");
     return;
   }
 
-  const result = document.getElementById("tracking-result");
-  const empty = document.getElementById("tracking-empty");
-
-  result?.classList.add("hidden");
-  if (empty) empty.style.display = "none";
+  const folio = normalizeFolio(raw);
 
   try {
-    const data = await api(`/api/orders/track/${encodeURIComponent(folio)}`);
+    const data = await api(`/api/orders/track/${encodeURIComponent(folio)}`, "GET", null, true);
     const p = data.order;
 
-    setText("tr-id", p.Folio || folio);
+    setText("tr-id", p.Folio || "—");
     setText("tr-prenda", p.tipoPrenda || "—");
-    setText("tr-cliente", p.cliente || "—");
-    setText("tr-entrega", fmtDate(p.FechaEntrega));
-    setText("tr-estado", estadoLabel(p.Estado));
+    setText("tr-cliente", p.cliente || p.nombre || "—");
+    setText("tr-entrega", fmtDate(p.FechaEntrega || p.fechaEntrega));
+    setText("tr-estado", p.Estado || "—");
 
-    result?.classList.remove("hidden");
+    document.getElementById("tracking-result")?.classList.remove("hidden");
+    document.getElementById("tracking-empty")?.classList.add("hidden");
   } catch (err) {
-    if (empty) {
-      empty.style.display = "block";
-      empty.textContent = `No se encontró ningún pedido con ID ${folio}.`;
-    }
+    document.getElementById("tracking-result")?.classList.add("hidden");
+    document.getElementById("tracking-empty")?.classList.remove("hidden");
+    toast(err.message || "No se encontró el pedido.", "error");
   }
 }
 
 function loadCuenta() {
   if (!G.user) return;
-  setText("cuenta-name", G.user.nombreCompleto || G.user.email || "");
-  setText("cuenta-email", G.user.email || "");
+  setText("cuenta-name", `${G.user.nombre || ""} ${G.user.apellido || ""}`.trim() || "Usuario");
+  setText("cuenta-email", G.user.email || "—");
 }
 
 /* =========================
    ADMIN
 ========================= */
 function showAdmin() {
-  document.querySelectorAll(".screen").forEach(s => {
-    s.classList.remove("active");
-    s.style.display = "";
-  });
-
-  const adminScreen = document.getElementById("screen-admin");
-  if (adminScreen) {
-    adminScreen.style.display = "flex";
-    adminScreen.classList.add("active");
-  }
-
-  setText("adm-user-pill", (G.user?.email || "Admin").split("@")[0]);
+  goTo("screen-admin-layout");
 }
 
 async function loadAdminData() {
-  try {
-    const [ordersData, clientsData] = await Promise.all([
-      api("/api/admin/orders", "GET", null, true),
-      api("/api/admin/clients", "GET", null, true)
-    ]);
-
-    G.orders = ordersData.orders || [];
-    G.filtered = [...G.orders];
-
-    updateMetrics();
-    renderDashRecent();
-    applyFilters();
-    renderClientes(clientsData.clients || []);
-  } catch (err) {
-    toast(err.message, "error");
-  }
+  await loadOrders();
+  renderStats();
+  renderOrders();
 }
 
-function admNav(btn) {
-  const targetId = btn.dataset.view;
-
-  document.querySelectorAll(".adm-nav-btn").forEach(b => b.classList.remove("active"));
-  btn.classList.add("active");
-
-  document.querySelectorAll(".adm-view").forEach(v => v.classList.remove("active-adm-view"));
-  document.getElementById(targetId)?.classList.add("active-adm-view");
-
-  const titles = {
-    "adm-view-dashboard": "Dashboard",
-    "adm-view-pedidos": "Pedidos",
-    "adm-view-nuevo": "Nuevo Pedido",
-    "adm-view-clientes": "Clientes"
-  };
-
-  setText("adm-page-title", titles[targetId] || "");
-
-  if (window.innerWidth < 900) {
-    closeSidebar();
-  }
+async function loadOrders() {
+  const data = await api("/api/admin/orders", "GET", null, true);
+  G.orders = Array.isArray(data.orders) ? data.orders : [];
+  G.filtered = [...G.orders];
 }
 
-function admNavById(viewId) {
-  const btn = document.querySelector(`[data-view="${viewId}"]`);
-  if (btn) admNav(btn);
+function renderStats() {
+  setText("stat-total", String(G.orders.length));
+  setText("stat-pend", String(G.orders.filter(o => (o.Estado || "").toLowerCase() === "pendiente").length));
+  setText("stat-proceso", String(G.orders.filter(o => (o.Estado || "").toLowerCase() === "en proceso").length));
+  setText("stat-listo", String(G.orders.filter(o => (o.Estado || "").toLowerCase() === "listo").length));
 }
 
-function updateMetrics() {
-  const cnt = { pendiente: 0, en_proceso: 0, planchado: 0, listo: 0, entregado: 0 };
-
-  G.orders.forEach(o => {
-    if (cnt[o.Estado] !== undefined) cnt[o.Estado]++;
-  });
-
-  setText("m-total", String(G.orders.length));
-  setText("m-pend", String(cnt.pendiente));
-  setText("m-proc", String(cnt.en_proceso + cnt.planchado));
-  setText("m-list", String(cnt.listo));
-  setText("m-ent", String(cnt.entregado));
-}
-
-function renderDashRecent() {
-  const tbody = document.getElementById("dash-tbody");
-  if (!tbody) return;
-
-  const list = G.orders.slice(0, 6);
-
-  if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="t-empty">Sin pedidos aún.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = list.map(o => `
-    <tr>
-      <td><strong>${esc(o.Folio || "—")}</strong></td>
-      <td>${esc(o.cliente)}</td>
-      <td>${esc(o.tipoPrenda)}</td>
-      <td>${fmtDate(o.fechaIngreso)}</td>
-      <td>${badgeHtml(o.Estado)}</td>
-      <td>
-        <div class="tbl-actions">
-          <button class="tbl-btn" onclick="openModal('${o.id}')">👁</button>
-        </div>
-      </td>
-    </tr>
-  `).join("");
-}
-
-function applyFilters() {
-  const search = (document.getElementById("adm-search")?.value || "").toLowerCase();
-  const status = document.getElementById("adm-filter-st")?.value || "";
-
-  G.filtered = G.orders.filter(o => {
-    const matchText = !search ||
-      (o.cliente || "").toLowerCase().includes(search) ||
-      (o.tipoPrenda || "").toLowerCase().includes(search) ||
-      (o.Folio || "").toLowerCase().includes(search);
-
-    const matchStatus = !status || o.Estado === status;
-    return matchText && matchStatus;
-  });
-
-  renderPedidosTable();
-}
-
-function renderPedidosTable() {
-  const tbody = document.getElementById("pedidos-tbody");
-  if (!tbody) return;
+function renderOrders() {
+  const box = document.getElementById("orders-list");
+  if (!box) return;
 
   if (!G.filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="t-empty">No hay pedidos que coincidan.</td></tr>';
+    box.innerHTML = '<p class="empty-msg">No hay pedidos.</p>';
     return;
   }
 
-  tbody.innerHTML = G.filtered.map(o => `
-    <tr>
-      <td><strong>${esc(o.Folio || "—")}</strong></td>
-      <td>${esc(o.cliente)}</td>
-      <td>${esc(o.tipoPrenda)}</td>
-      <td>${esc(o.material || "—")}</td>
-      <td style="text-align:center">${o.cantidad || 1}</td>
-      <td>${fmtDate(o.fechaIngreso)}</td>
-      <td>${fmtDate(o.FechaEntrega)}</td>
-      <td>${badgeHtml(o.Estado)}</td>
-      <td>
-        <div class="tbl-actions">
-          <button class="tbl-btn" onclick="openModal('${o.id}')">👁</button>
-          <button class="tbl-btn" onclick="admOpenEdit('${o.id}')">✏️</button>
-          <button class="tbl-btn del" onclick="confirmDelete('${o.id}')">🗑</button>
+  box.innerHTML = G.filtered.map(o => `
+    <div class="admin-order-card">
+      <div class="admin-order-top">
+        <div>
+          <div class="admin-order-folio">${esc(o.Folio || "—")}</div>
+          <div class="admin-order-sub">${esc(o.cliente || o.nombre || "Cliente")} · ${fmtDate(o.fechaIngreso)}</div>
         </div>
-      </td>
-    </tr>
+        <div>${badgeHtml(o.Estado)}</div>
+      </div>
+
+      <div class="admin-order-body">
+        <div><b>Prenda:</b> ${esc(o.tipoPrenda || "—")}</div>
+        <div><b>Material:</b> ${esc(o.material || "—")}</div>
+        <div><b>Cantidad:</b> ${esc(String(o.cantidad || "—"))}</div>
+        <div><b>Entrega:</b> ${fmtDate(o.FechaEntrega || o.fechaEntrega)}</div>
+      </div>
+
+      <div class="admin-order-actions">
+        <button class="btn-outline-dark" onclick="openDetail('${escAttr(o.id)}')">Ver detalle</button>
+        <button class="btn-red" onclick="openEditStatus('${escAttr(o.id)}')">Editar estado</button>
+        <button class="btn-danger-red" onclick="askDelete('${escAttr(o.id)}')">Eliminar</button>
+      </div>
+    </div>
   `).join("");
 }
 
-function admOpenNew() {
-  ["adm-f-cliente", "adm-f-telefono", "adm-f-prenda", "adm-f-cantidad", "adm-f-precio", "adm-f-notas"].forEach(id => setVal(id, ""));
-  setVal("adm-edit-id", "");
-  setVal("adm-f-material", "");
-  setVal("adm-f-ingreso", today());
-  setVal("adm-f-entrega", "");
-  setVal("adm-f-estado", "pendiente");
-  setText("adm-form-title", "Registrar nuevo pedido");
-  const row = document.getElementById("adm-status-row");
-  if (row) row.style.display = "none";
+function filterOrders() {
+  const q = val("admin-search").trim().toLowerCase();
+  const status = val("admin-filter-status").trim().toLowerCase();
+
+  G.filtered = G.orders.filter(o => {
+    const text = [
+      o.Folio,
+      o.tipoPrenda,
+      o.material,
+      o.cliente,
+      o.nombre,
+      o.Estado
+    ].join(" ").toLowerCase();
+
+    const matchQ = !q || text.includes(q);
+    const matchStatus = !status || (o.Estado || "").toLowerCase() === status;
+    return matchQ && matchStatus;
+  });
+
+  renderOrders();
 }
 
-function admOpenEdit(id) {
-  const o = G.orders.find(x => x.id === id);
-  if (!o) return;
-
-  setVal("adm-edit-id", id);
-  setVal("adm-f-cliente", o.cliente || "");
-  setVal("adm-f-telefono", o.telefono || "");
-  setVal("adm-f-prenda", o.tipoPrenda || "");
-  setVal("adm-f-material", o.material || "");
-  setVal("adm-f-cantidad", o.cantidad || 1);
-  setVal("adm-f-precio", o.precio || "");
-  setVal("adm-f-ingreso", o.fechaIngreso || "");
-  setVal("adm-f-entrega", o.FechaEntrega || "");
-  setVal("adm-f-notas", o.notas || "");
-  setVal("adm-f-estado", o.Estado || "pendiente");
-
-  setText("adm-form-title", "Editar pedido");
-  const row = document.getElementById("adm-status-row");
-  if (row) row.style.display = "block";
-
-  closeModal();
-  admNavById("adm-view-nuevo");
-}
-
-async function admSaveOrder() {
-  const editId = val("adm-edit-id");
-  const cliente = val("adm-f-cliente").trim();
-  const prenda = val("adm-f-prenda").trim();
-  const cantidad = parseInt(val("adm-f-cantidad")) || 0;
-  const ingreso = val("adm-f-ingreso");
-  const fechaEntrega = val("adm-f-entrega");
-
-  if (!cliente) {
-    toast("El nombre del cliente es obligatorio.", "error");
-    return;
-  }
-
-  if (!prenda) {
-    toast("El nombre de la prenda es obligatorio.", "error");
-    return;
-  }
-
-  if (cantidad < 1) {
-    toast("La cantidad debe ser al menos 1.", "error");
-    return;
-  }
-
-  if (!ingreso || !fechaEntrega) {
-    toast("Debes completar las fechas.", "error");
-    return;
-  }
-
-  if (fechaEntrega < ingreso) {
-    toast("La entrega no puede ser antes del ingreso.", "error");
-    return;
-  }
-
-  const payload = {
-    cliente,
-    telefono: val("adm-f-telefono").trim(),
-    tipoPrenda: prenda,
-    material: val("adm-f-material"),
-    cantidad,
-    precio: parseFloat(val("adm-f-precio")) || null,
-    fechaIngreso: ingreso,
-    FechaEntrega: fechaEntrega,
-    notas: val("adm-f-notas").trim()
-  };
-
-  try {
-    if (editId) {
-      payload.Estado = val("adm-f-estado");
-      await api(`/api/admin/orders/${editId}`, "PATCH", payload, true);
-      toast("Pedido actualizado.", "success");
-    } else {
-      await api("/api/admin/orders", "POST", payload, true);
-      toast("Pedido registrado.", "success");
-    }
-
-    admOpenNew();
-    admNavById("adm-view-pedidos");
-    await loadAdminData();
-  } catch (err) {
-    toast(err.message, "error");
-  }
-}
-
-function openModal(id) {
-  const o = G.orders.find(x => x.id === id);
-  if (!o) return;
+function openDetail(id) {
+  const order = G.orders.find(x => String(x.id) === String(id));
+  if (!order) return;
 
   G.currentId = id;
 
-  const fotos = Array.isArray(o.fotos) ? o.fotos : [];
+  const fotos = Array.isArray(order.fotos) ? order.fotos : [];
   const fotosHtml = fotos.length
     ? `
-      <div class="pedido-fotos" style="margin-top:16px;">
+      <div class="pedido-fotos" style="margin-top:10px;">
         ${fotos.map(f => {
-          const fullSrc = fotoUrl(f.url);
+          const src = fotoUrl(f.url);
           return `
             <div class="pedido-foto-item">
               <img
-                src="${fullSrc}"
-                data-fullsrc="${fullSrc}"
+                src="${src}"
+                data-fullsrc="${src}"
                 class="clickable-photo"
-                alt="Foto ${esc(o.Folio)}"
+                alt="Foto del pedido ${esc(order.Folio || "")}"
                 loading="lazy"
                 referrerpolicy="no-referrer"
               >
@@ -1512,189 +1419,187 @@ function openModal(id) {
         }).join("")}
       </div>
     `
-    : `<p class="sin-fotos" style="margin-top:16px;">Aún no hay fotos para este pedido.</p>`;
+    : `<p class="sin-fotos" style="margin-top:10px;">Aún no hay fotos para este pedido.</p>`;
 
-  const modal = document.getElementById("modal-bd");
-  if (!modal) return;
-
-  modal.innerHTML = `
-    <div class="det-grid">
-      <div class="det-item"><span class="det-lbl">Folio</span><span class="det-val">${esc(o.Folio || "—")}</span></div>
-      <div class="det-item"><span class="det-lbl">Estado</span><span class="det-val">${badgeHtml(o.Estado)}</span></div>
-      <div class="det-item"><span class="det-lbl">Contador</span><span class="det-val">${o.Contador || "—"}</span></div>
-      <div class="det-item"><span class="det-lbl">Validado</span><span class="det-val">${o.Validado ? "✅ Sí" : "⏳ No"}</span></div>
-      <div class="det-item"><span class="det-lbl">Cliente</span><span class="det-val">${esc(o.cliente)}</span></div>
-      <div class="det-item"><span class="det-lbl">Teléfono</span><span class="det-val">${esc(o.telefono || "—")}</span></div>
-      <div class="det-item"><span class="det-lbl">Prenda</span><span class="det-val">${esc(o.tipoPrenda)}</span></div>
-      <div class="det-item"><span class="det-lbl">Material</span><span class="det-val">${esc(o.material || "—")}</span></div>
-      <div class="det-item"><span class="det-lbl">Cantidad</span><span class="det-val">${o.cantidad || 1} pza.</span></div>
-      <div class="det-item"><span class="det-lbl">Precio</span><span class="det-val">${o.precio ? `$${parseFloat(o.precio).toFixed(2)} MXN` : "—"}</span></div>
-      <div class="det-item"><span class="det-lbl">Ingreso</span><span class="det-val">${fmtDate(o.fechaIngreso)}</span></div>
-      <div class="det-item"><span class="det-lbl">Entrega est.</span><span class="det-val">${fmtDate(o.FechaEntrega)}</span></div>
-      ${o.notas ? `<div class="det-item full"><span class="det-lbl">Notas</span><span class="det-val">${esc(o.notas)}</span></div>` : ""}
-      <div class="det-item full">
-        <span class="det-lbl">Fotos</span>
-        <div class="det-val">${fotosHtml}</div>
-      </div>
+  openModal(`
+    <div class="detail-grid">
+      <div><span>Folio</span><b>${esc(order.Folio || "—")}</b></div>
+      <div><span>Cliente</span><b>${esc(order.cliente || order.nombre || "—")}</b></div>
+      <div><span>Teléfono</span><b>${esc(order.telefono || "—")}</b></div>
+      <div><span>Prenda</span><b>${esc(order.tipoPrenda || "—")}</b></div>
+      <div><span>Material</span><b>${esc(order.material || "—")}</b></div>
+      <div><span>Cantidad</span><b>${esc(String(order.cantidad || "—"))}</b></div>
+      <div><span>Fecha ingreso</span><b>${fmtDate(order.fechaIngreso)}</b></div>
+      <div><span>Entrega</span><b>${fmtDate(order.FechaEntrega || order.fechaEntrega)}</b></div>
+      <div><span>Estado</span><b>${esc(order.Estado || "—")}</b></div>
+      <div class="full-row"><span>Notas</span><b>${esc(order.notas || "—")}</b></div>
+      <div class="full-row"><span>Fotos</span>${fotosHtml}</div>
     </div>
-  `;
-
-  const st = document.getElementById("modal-st-sel");
-  if (st) st.value = o.Estado || "pendiente";
-
-  document.getElementById("modal-overlay")?.classList.remove("hidden");
+  `, "Detalle del pedido");
 }
 
-function closeModal() {
-  document.getElementById("modal-overlay")?.classList.add("hidden");
-  G.currentId = null;
+function openEditStatus(id) {
+  const order = G.orders.find(x => String(x.id) === String(id));
+  if (!order) return;
+
+  G.currentId = id;
+
+  openModal(`
+    <label class="field-lbl">Nuevo estado</label>
+    <select id="edit-status" class="field solo">
+      ${["Pendiente", "En proceso", "Listo"].map(s => `
+        <option value="${s}" ${String(order.Estado || "").toLowerCase() === s.toLowerCase() ? "selected" : ""}>${s}</option>
+      `).join("")}
+    </select>
+    <button class="btn-dark full" onclick="saveStatus()">Guardar cambios</button>
+  `, "Editar estado");
 }
 
-async function admUpdateStatus() {
+async function saveStatus() {
   if (!G.currentId) return;
-
-  const newEstado = document.getElementById("modal-st-sel")?.value || "pendiente";
+  const estado = val("edit-status");
 
   try {
-    await api(`/api/admin/orders/${G.currentId}`, "PATCH", {
-      Estado: newEstado
-    }, true);
-
-    toast("Estado actualizado.", "success");
+    await api(`/api/admin/orders/${encodeURIComponent(G.currentId)}/status`, "PUT", { Estado: estado }, true);
     closeModal();
+    toast("Estado actualizado.", "success");
     await loadAdminData();
   } catch (err) {
     toast(err.message, "error");
   }
 }
 
-function admEditFromModal() {
-  if (G.currentId) admOpenEdit(G.currentId);
-}
-
-function confirmDelete(id) {
+function askDelete(id) {
   G.delId = id;
-  document.getElementById("confirm-overlay")?.classList.remove("hidden");
+  openConfirm("¿Seguro que deseas eliminar este pedido?", deleteCurrent);
 }
 
-function closeConfirm() {
-  document.getElementById("confirm-overlay")?.classList.add("hidden");
-  G.delId = null;
-}
-
-async function executeDelete() {
+async function deleteCurrent() {
   if (!G.delId) return;
 
   try {
-    await api(`/api/admin/orders/${G.delId}`, "DELETE", null, true);
-    toast("Pedido eliminado.", "info");
+    await api(`/api/admin/orders/${encodeURIComponent(G.delId)}`, "DELETE", null, true);
+    G.delId = null;
     closeConfirm();
-    closeModal();
+    toast("Pedido eliminado.", "success");
     await loadAdminData();
   } catch (err) {
     toast(err.message, "error");
   }
-}
-
-function renderClientes(clients) {
-  const tbody = document.getElementById("clientes-tbody");
-  if (!tbody) return;
-
-  if (!clients.length) {
-    tbody.innerHTML = '<tr><td colspan="4" class="t-empty">No hay clientes registrados.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = clients.map(c => `
-    <tr>
-      <td>${esc(c.nombreCompleto || c.email)}</td>
-      <td>${esc(c.email || "—")}</td>
-      <td>${esc(c.telefono || "—")}</td>
-      <td style="text-align:center">${c.totalPedidos || 0}</td>
-    </tr>
-  `).join("");
 }
 
 /* =========================
    SIDEBAR ADMIN
 ========================= */
-function toggleSidebar() {
-  const s = document.getElementById("adm-sidebar");
-  const ov = document.getElementById("sidebar-overlay");
-
-  if (!s || !ov) return;
-
-  const isOpen = s.classList.toggle("open");
-
-  if (isOpen) {
-    ov.classList.remove("hidden");
-  } else {
-    ov.classList.add("hidden");
-  }
+function openSidebar() {
+  document.getElementById("sidebar-overlay")?.classList.remove("hidden");
+  document.getElementById("admin-sidebar")?.classList.add("open");
 }
 
 function closeSidebar() {
-    document.getElementById("adm-sidebar")?.classList.remove("open");
   document.getElementById("sidebar-overlay")?.classList.add("hidden");
+  document.getElementById("admin-sidebar")?.classList.remove("open");
 }
 
 /* =========================
-   RESPONSIVE UI
+   MODALES
+========================= */
+function openModal(contentHtml, title = "Detalle") {
+  setText("modal-title", title);
+  document.getElementById("modal-content").innerHTML = contentHtml;
+  document.getElementById("modal-overlay")?.classList.remove("hidden");
+}
+
+function closeModal() {
+  document.getElementById("modal-overlay")?.classList.add("hidden");
+  document.getElementById("modal-content").innerHTML = "";
+}
+
+function openConfirm(message, onAccept) {
+  setText("confirm-text", message);
+  document.getElementById("confirm-overlay")?.classList.remove("hidden");
+  window.__confirmAccept = onAccept;
+}
+
+function closeConfirm() {
+  document.getElementById("confirm-overlay")?.classList.add("hidden");
+  window.__confirmAccept = null;
+}
+
+function confirmAccept() {
+  if (typeof window.__confirmAccept === "function") {
+    window.__confirmAccept();
+  }
+}
+
+/* =========================
+   RESPONSIVE
 ========================= */
 function initResponsive() {
-  window.addEventListener("resize", handleResize);
-  window.addEventListener("orientationchange", handleResize);
+  document.documentElement.style.setProperty("--vh", `${window.innerHeight * 0.01}px`);
 
-  handleResize();
-  enableTableScroll();
-  updateViewportClasses();
+  const onResize = () => {
+    document.documentElement.style.setProperty("--vh", `${window.innerHeight * 0.01}px`);
+  };
 
-  document.querySelectorAll(".adm-nav-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      if (window.innerWidth < 900) {
-        closeSidebar();
-      }
-    });
-  });
+  window.addEventListener("resize", onResize);
+  window.addEventListener("orientationchange", onResize);
 }
 
-function handleResize() {
-  const sidebar = document.getElementById("adm-sidebar");
-  const overlay = document.getElementById("sidebar-overlay");
+/* =========================
+   FECHA ENTREGA
+========================= */
+function aplicarLimitesFechaEntrega() {
+  const input = document.getElementById("np-entrega");
+  if (!input) return;
 
-  updateViewportClasses();
-  enableTableScroll();
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
 
-  if (!sidebar || !overlay) return;
+  const minFecha = formatDateInput(hoy);
 
-  if (window.innerWidth >= 900) {
-    sidebar.classList.remove("open");
-    overlay.classList.add("hidden");
+  const maxFecha = new Date(hoy);
+  maxFecha.setDate(maxFecha.getDate() + 30);
+  const maxFechaStr = formatDateInput(maxFecha);
+
+  input.min = minFecha;
+  input.max = maxFechaStr;
+
+  if (input.value) {
+    validarFechaEntregaInput();
   }
 }
 
-function updateViewportClasses() {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+function validarFechaEntregaInput() {
+  const input = document.getElementById("np-entrega");
+  if (!input || !input.value) return;
 
-  document.body.classList.remove("ui-mobile-small", "ui-mobile-large", "ui-tablet", "ui-desktop");
+  const seleccionada = new Date(`${input.value}T00:00:00`);
 
-  if (w <= 480) {
-    document.body.classList.add("ui-mobile-small");
-  } else if (w <= 900 && h <= 1000) {
-    document.body.classList.add("ui-mobile-large");
-  } else if (w <= 1200) {
-    document.body.classList.add("ui-tablet");
-  } else {
-    document.body.classList.add("ui-desktop");
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  const maxFecha = new Date(hoy);
+  maxFecha.setDate(maxFecha.getDate() + 30);
+  maxFecha.setHours(0, 0, 0, 0);
+
+  if (seleccionada < hoy) {
+    input.value = formatDateInput(hoy);
+    toast("La fecha no puede ser anterior a hoy.", "error");
+    return;
+  }
+
+  if (seleccionada > maxFecha) {
+    input.value = formatDateInput(maxFecha);
+    toast("Solo puedes elegir una fecha dentro de los próximos 30 días.", "error");
   }
 }
 
-function enableTableScroll() {
-  document.querySelectorAll(".tbl-wrap").forEach(wrap => {
-    wrap.style.overflowX = "auto";
-    wrap.style.webkitOverflowScrolling = "touch";
-  });
+function formatDateInput(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 /* =========================
@@ -1708,72 +1613,36 @@ function createPhotoViewer() {
   overlay.className = "photo-viewer-overlay hidden";
   overlay.innerHTML = `
     <div class="photo-viewer-box">
-      <button id="photo-viewer-close" class="photo-viewer-close" aria-label="Cerrar imagen">✕</button>
-      <img id="photo-viewer-img" class="photo-viewer-img" src="" alt="Foto completa">
+      <button id="photo-viewer-close" class="photo-viewer-close" aria-label="Cerrar">✕</button>
+      <img id="photo-viewer-img" src="" alt="Vista completa">
+      <p id="photo-viewer-caption"></p>
     </div>
   `;
 
   document.body.appendChild(overlay);
 }
 
-function openImageViewer(src, alt = "Foto completa") {
+function openImageViewer(src, caption = "") {
   const overlay = document.getElementById("photo-viewer-overlay");
   const img = document.getElementById("photo-viewer-img");
+  const cap = document.getElementById("photo-viewer-caption");
 
-  if (!overlay || !img || !src) return;
+  if (!overlay || !img || !cap) return;
 
-  img.src = src;
-  img.alt = alt;
+  img.src = src || "";
+  cap.textContent = caption || "";
   overlay.classList.remove("hidden");
-  document.body.style.overflow = "hidden";
 }
 
 function closeImageViewer() {
-  const overlay = document.getElementById("photo-viewer-overlay");
+  document.getElementById("photo-viewer-overlay")?.classList.add("hidden");
   const img = document.getElementById("photo-viewer-img");
-
-  if (!overlay || !img) return;
-
-  overlay.classList.add("hidden");
-  img.src = "";
-  document.body.style.overflow = "";
+  if (img) img.src = "";
 }
 
 /* =========================
    HELPERS
 ========================= */
-function badgeHtml(Estado) {
-  const map = {
-    pendiente: ["b-pendiente", "⏳ Pendiente"],
-    en_proceso: ["b-en_proceso", "🔄 En proceso"],
-    planchado: ["b-planchado", "👔 Planchado"],
-    listo: ["b-listo", "✅ Listo"],
-    entregado: ["b-entregado", "🏠 Entregado"]
-  };
-  const [cls, label] = map[Estado] || ["b-pendiente", Estado || "—"];
-  return `<span class="badge ${cls}">${label}</span>`;
-}
-
-function estadoLabel(Estado) {
-  const labels = {
-    pendiente: "Pendiente",
-    en_proceso: "En proceso",
-    planchado: "Planchado",
-    listo: "Listo",
-    entregado: "Entregado"
-  };
-  return labels[Estado] || Estado || "—";
-}
-
-function esc(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
 function val(id) {
   return document.getElementById(id)?.value || "";
 }
@@ -1783,113 +1652,52 @@ function setVal(id, value) {
   if (el) el.value = value;
 }
 
-function setText(id, value) {
+function setText(id, text) {
   const el = document.getElementById(id);
-  if (el) el.textContent = value;
+  if (el) el.textContent = text ?? "";
 }
 
-function today() {
-  return formatLocalDate(new Date());
+function esc(str) {
+  return String(str ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
-function formatLocalDate(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function aplicarLimitesFechaEntrega() {
-  const el = document.getElementById("np-entrega");
-  if (!el) return;
-
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-
-  const minFecha = new Date(hoy);
-  const maxFecha = new Date(hoy);
-  maxFecha.setDate(maxFecha.getDate() + 30);
-  maxFecha.setHours(0, 0, 0, 0);
-
-  const minStr = formatLocalDate(minFecha);
-  const maxStr = formatLocalDate(maxFecha);
-
-  el.setAttribute("min", minStr);
-  el.setAttribute("max", maxStr);
-
-  el.min = minStr;
-  el.max = maxStr;
-
-  if (!el.value) {
-    el.value = minStr;
-    return;
-  }
-
-  const valor = new Date(`${el.value}T00:00:00`);
-
-  if (isNaN(valor.getTime()) || valor < minFecha) {
-    el.value = minStr;
-    return;
-  }
-
-  if (valor > maxFecha) {
-    el.value = maxStr;
-  }
-}
-
-function validarFechaEntregaInput() {
-  const el = document.getElementById("np-entrega");
-  if (!el) return;
-
-  aplicarLimitesFechaEntrega();
-
-  if (!el.value) return;
-
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-
-  const minFecha = new Date(hoy);
-  const maxFecha = new Date(hoy);
-  maxFecha.setDate(maxFecha.getDate() + 30);
-  maxFecha.setHours(0, 0, 0, 0);
-
-  const fechaSeleccionada = new Date(`${el.value}T00:00:00`);
-
-  if (fechaSeleccionada < minFecha) {
-    el.value = formatLocalDate(minFecha);
-    toast("En iPhone solo se permite fecha desde hoy.", "error");
-    return;
-  }
-
-  if (fechaSeleccionada > maxFecha) {
-    el.value = formatLocalDate(maxFecha);
-    toast("En iPhone solo se permite hasta 30 días después.", "error");
-    return;
-  }
+function escAttr(str) {
+  return esc(str).replaceAll("`", "&#96;");
 }
 
 function fmtDate(value) {
   if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
 
-  if (String(value).includes("T")) {
-    const d1 = new Date(value);
-    if (!isNaN(d1.getTime())) {
-      return d1.toLocaleDateString("es-MX", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit"
-      });
-    }
-  }
-
-  const d2 = new Date(`${value}T00:00:00`);
-  if (isNaN(d2.getTime())) return value;
-
-  return d2.toLocaleDateString("es-MX", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
+  return d.toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
   });
+}
+
+function normalizeFolio(value) {
+  const raw = String(value || "").trim().toUpperCase();
+  if (!raw) return "";
+  return raw.startsWith("#") ? raw : `#${raw}`;
+}
+
+function badgeHtml(status) {
+  const s = String(status || "Pendiente");
+  const low = s.toLowerCase();
+
+  const cls =
+    low === "listo" ? "badge-green" :
+    low === "en proceso" ? "badge-yellow" :
+    "badge-red";
+
+  return `<span class="badge ${cls}">${esc(s)}</span>`;
 }
 
 function toast(message, type = "info") {
@@ -1899,20 +1707,24 @@ function toast(message, type = "info") {
     wrap = document.createElement("div");
     wrap.id = "toast-wrap";
     wrap.style.position = "fixed";
-    wrap.style.top = "16px";
-    wrap.style.right = "16px";
-    wrap.style.zIndex = "9999";
+    wrap.style.top = "18px";
+    wrap.style.left = "50%";
+    wrap.style.transform = "translateX(-50%)";
+    wrap.style.zIndex = "99999";
     wrap.style.display = "flex";
     wrap.style.flexDirection = "column";
     wrap.style.gap = "10px";
+    wrap.style.pointerEvents = "none";
     document.body.appendChild(wrap);
   }
 
   const item = document.createElement("div");
   item.textContent = message;
+  item.style.pointerEvents = "auto";
   item.style.padding = "12px 16px";
   item.style.borderRadius = "12px";
   item.style.color = "#fff";
+  item.style.fontSize = "14px";
   item.style.fontWeight = "600";
   item.style.boxShadow = "0 10px 25px rgba(0,0,0,.18)";
   item.style.maxWidth = "320px";

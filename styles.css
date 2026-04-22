@@ -2050,6 +2050,46 @@ button, input, select, textarea {
   border-radius: 6px;
 }
 
+
+/* ══════════════════════════════════════════════
+   QR PROTEGIDO
+══════════════════════════════════════════════ */
+.qr-safe-box,
+.conf-qr-wrap,
+#qr-modal-canvas-wrap {
+  background: #ffffff !important;
+  color: #000000 !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  mix-blend-mode: normal !important;
+  isolation: isolate;
+  forced-color-adjust: none;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  color-scheme: light;
+}
+
+.qr-safe-box canvas,
+.conf-qr-wrap canvas,
+#qr-modal-canvas-wrap canvas,
+.qr-safe-img {
+  display: block;
+  width: 180px;
+  height: 180px;
+  max-width: 100%;
+  background: #ffffff !important;
+  color: #000000 !important;
+  border-radius: 6px;
+  image-rendering: pixelated;
+  filter: none !important;
+  -webkit-filter: none !important;
+  mix-blend-mode: normal !important;
+  forced-color-adjust: none;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  color-scheme: light;
+}
+
 .conf-qr-hint {
   font-size: .72rem;
   color: var(--gray);

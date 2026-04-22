@@ -1,0 +1,1936 @@
+// ================================
+// app.js
+// ================================
+const BACKEND_URL = "https://docker-planchaduria.onrender.com";
+
+const G = {
+  token: localStorage.getItem("token") || "",
+  user: JSON.parse(localStorage.getItem("user") || "null"),
+  isAdmin: JSON.parse(localStorage.getItem("isAdmin") || "false"),
+  orders: [],
+  filtered: [],
+  currentId: null,
+  delId: null,
+  material: "",
+  pendingRegister: null,
+  pendingReset: null
+};
+
+document.addEventListener("DOMContentLoaded", async () => {
+  bindModalClosers();
+  bindPasswordToggles();
+  createPhotoViewer();
+  createQRModal();
+  initResponsive();
+  aplicarLimitesFechaEntrega();
+  restorePendingRegister();
+  restorePendingReset();
+  await restoreSession();
+});
+
+document.addEventListener("change", e => {
+  if (e.target && e.target.id === "np-entrega") {
+    validarFechaEntregaInput();
+  }
+});
+
+document.addEventListener("input", e => {
+  if (e.target && e.target.id === "reset-code") {
+    const code = e.target.value.replace(/\D/g, "").slice(0, 6);
+    e.target.value = code;
+
+    if (code.length === 6) {
+      verifyPasswordResetCode();
+    }
+  }
+});
+
+function bindModalClosers() {
+  document.getElementById("modal-overlay")?.addEventListener("click", e => {
+    if (e.target === document.getElementById("modal-overlay")) closeModal();
+  });
+
+  document.getElementById("confirm-overlay")?.addEventListener("click", e => {
+    if (e.target === document.getElementById("confirm-overlay")) closeConfirm();
+  });
+
+  document.getElementById("sidebar-overlay")?.addEventListener("click", () => {
+    closeSidebar();
+  });
+
+  document.getElementById("verify-overlay")?.addEventListener("click", e => {
+    if (e.target === document.getElementById("verify-overlay")) {
+      closeVerifyModal();
+    }
+  });
+
+  document.getElementById("reset-overlay")?.addEventListener("click", e => {
+    if (e.target === document.getElementById("reset-overlay")) {
+      closeResetPasswordModal();
+    }
+  });
+
+  document.addEventListener("click", e => {
+    const img = e.target.closest(".clickable-photo");
+    if (img) {
+      openImageViewer(
+        img.getAttribute("data-fullsrc") || img.getAttribute("src") || "",
+        img.getAttribute("alt") || "Foto"
+      );
+    }
+
+    const overlay = e.target.closest("#photo-viewer-overlay");
+    if (overlay && e.target.id === "photo-viewer-overlay") {
+      closeImageViewer();
+    }
+
+    if (e.target.closest("#photo-viewer-close")) {
+      closeImageViewer();
+    }
+
+    // Cerrar modal QR al hacer clic fuera
+    const qrOverlay = document.getElementById("qr-modal-overlay");
+    if (qrOverlay && e.target === qrOverlay) {
+      closeQRModal();
+    }
+  });
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      closeModal();
+      closeConfirm();
+      closeSidebar();
+      closeImageViewer();
+      closeVerifyModal();
+      closeResetPasswordModal();
+      closeQRModal();
+    }
+  });
+}
+
+function bindPasswordToggles() {
+  document.querySelectorAll("[data-toggle-pass]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const inputId = btn.getAttribute("data-toggle-pass");
+      const input = document.getElementById(inputId);
+      if (!input) return;
+
+      if (input.type === "password") {
+        input.type = "text";
+        btn.textContent = "🙈";
+      } else {
+        input.type = "password";
+        btn.textContent = "👁";
+      }
+    });
+  });
+}
+
+async function restoreSession() {
+  if (!G.token) {
+    goTo("screen-splash");
+    return;
+  }
+
+  try {
+    const data = await api("/api/auth/me", "GET", null, true);
+    G.user = data.user;
+    G.isAdmin = data.user.isAdmin;
+
+    localStorage.setItem("user", JSON.stringify(G.user));
+    localStorage.setItem("isAdmin", JSON.stringify(G.isAdmin));
+
+    if (G.isAdmin) {
+      showAdmin();
+      await loadAdminData();
+    } else {
+      goTo("screen-menu-client");
+      loadCuenta();
+    }
+  } catch (err) {
+    clearSession();
+    goTo("screen-splash");
+  }
+}
+
+function goTo(screenId) {
+  document.querySelectorAll(".screen").forEach(s => {
+    s.classList.remove("active");
+    s.style.display = "";
+  });
+
+  const target = document.getElementById(screenId);
+  if (target) target.classList.add("active");
+}
+
+async function api(path, method = "GET", body = null, withAuth = false) {
+  const headers = {};
+
+  if (!(body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  if (withAuth && G.token) {
+    headers["Authorization"] = `Bearer ${G.token}`;
+  }
+
+  const response = await fetch(`${BACKEND_URL}${path}`, {
+    method,
+    headers,
+    body: body
+      ? (body instanceof FormData ? body : JSON.stringify(body))
+      : null
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data.ok === false) {
+    const error = new Error(data.message || "Error de servidor");
+    error.payload = data;
+    throw error;
+  }
+
+  return data;
+}
+
+function setSession(token, user) {
+  G.token = token;
+  G.user = user;
+  G.isAdmin = !!user.isAdmin;
+
+  localStorage.setItem("token", token);
+  localStorage.setItem("user", JSON.stringify(user));
+  localStorage.setItem("isAdmin", JSON.stringify(G.isAdmin));
+}
+
+function clearSession() {
+  G.token = "";
+  G.user = null;
+  G.isAdmin = false;
+  G.orders = [];
+  G.filtered = [];
+  G.currentId = null;
+  G.delId = null;
+
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  localStorage.removeItem("isAdmin");
+}
+
+function fotoUrl(url) {
+  const value = String(url || "").trim();
+  if (!value) return "";
+
+  if (value.startsWith("http://") || value.startsWith("https://") || value.startsWith("data:")) {
+    return value;
+  }
+
+  if (value.startsWith("/")) {
+    return `${BACKEND_URL}${value}`;
+  }
+
+  return `${BACKEND_URL}/${value}`;
+}
+
+/* =========================
+   AUTH CLIENTE
+========================= */
+async function loginClient() {
+  const email = val("cl-email").trim();
+  const password = val("cl-pass");
+
+  if (!email || !password) {
+    toast("Completa todos los campos.", "error");
+    return;
+  }
+
+  try {
+    const data = await api("/api/auth/login", "POST", { email, password });
+
+    if (data.user.isAdmin) {
+      toast("Usa el acceso de administrador.", "error");
+      return;
+    }
+
+    setSession(data.token, data.user);
+    toast("¡Bienvenido de nuevo!", "success");
+    goTo("screen-menu-client");
+    loadCuenta();
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+async function registerClient() {
+  const nombre = val("reg-nombre").trim();
+  const apellido = val("reg-apellido").trim();
+  const email = val("reg-email").trim().toLowerCase();
+  const telefono = val("reg-phone").trim();
+  const password = val("reg-pass");
+
+  const soloLetras = /^[A-Za-zÁÉÍÓÚáéíóúÑñÜü\s]+$/;
+  const soloNumeros = /^\d+$/;
+
+  if (!nombre || !apellido || !email || !password) {
+    toast("Completa todos los campos obligatorios.", "error");
+    return;
+  }
+
+  if (nombre.length < 1 || !soloLetras.test(nombre)) {
+    toast("El nombre debe contener al menos un carácter válido.", "error");
+    return;
+  }
+
+  if (apellido.length < 1 || !soloLetras.test(apellido)) {
+    toast("El apellido debe contener al menos un carácter válido.", "error");
+    return;
+  }
+
+  if (telefono && !soloNumeros.test(telefono)) {
+    toast("El teléfono debe contener solo números.", "error");
+    return;
+  }
+
+  if (password.length < 6) {
+    toast("La contraseña debe tener al menos 6 caracteres.", "error");
+    return;
+  }
+
+  try {
+    const data = await api("/api/auth/request-register-code", "POST", {
+      nombre,
+      apellido,
+      email,
+      telefono,
+      password
+    });
+
+    savePendingRegister({
+      nombre,
+      apellido,
+      email,
+      telefono
+    });
+
+    toast(data.message || "Te enviamos un código a tu correo.", "success");
+    openVerifyModal(
+      email,
+      data.message || "Ingresa el código que enviamos a tu correo."
+    );
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+async function verifyRegisterCode() {
+  const code = val("ver-code").trim();
+  const email = (G.pendingRegister?.email || val("ver-email").trim()).toLowerCase();
+
+  if (!email) {
+    toast("No se encontró el correo a verificar.", "error");
+    return;
+  }
+
+  if (!code) {
+    toast("Ingresa el código de verificación.", "error");
+    return;
+  }
+
+  try {
+    const data = await api("/api/auth/verify-register-code", "POST", {
+      email,
+      code
+    });
+
+    if (!data.token || !data.user) {
+      clearPendingRegister();
+      closeVerifyModal();
+      toast(data.message || "Cuenta creada correctamente.", "success");
+      goTo("screen-login-client");
+      return;
+    }
+
+    setSession(data.token, data.user);
+    clearPendingRegister();
+    closeVerifyModal();
+
+    toast(data.message || "Cuenta verificada correctamente.", "success");
+
+    setVal("reg-nombre", "");
+    setVal("reg-apellido", "");
+    setVal("reg-email", "");
+    setVal("reg-phone", "");
+    setVal("reg-pass", "");
+
+    goTo("screen-menu-client");
+    loadCuenta();
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+async function resendRegisterCode() {
+  const email = (G.pendingRegister?.email || val("ver-email").trim()).toLowerCase();
+
+  if (!email) {
+    toast("No se encontró el correo para reenviar el código.", "error");
+    return;
+  }
+
+  try {
+    const data = await api("/api/auth/resend-register-code", "POST", { email });
+    toast(data.message || "Código reenviado.", "success");
+    setVerifyMessage(data.message || "Te enviamos un nuevo código.");
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+function clientLogout() {
+  clearSession();
+  toast("Sesión cerrada.", "info");
+  goTo("screen-splash");
+}
+
+/* =========================
+   MODAL VERIFICACIÓN REGISTRO
+========================= */
+function openVerifyModal(email = "", message = "") {
+  setVal("ver-code", "");
+  setVal("ver-email", email);
+  setVerifyMessage(message || "Ingresa el código de verificación.");
+  document.getElementById("verify-overlay")?.classList.remove("hidden");
+}
+
+function closeVerifyModal() {
+  document.getElementById("verify-overlay")?.classList.add("hidden");
+}
+
+function setVerifyMessage(message) {
+  const el = document.getElementById("ver-message");
+  if (el) el.textContent = message || "";
+}
+
+function savePendingRegister(data) {
+  G.pendingRegister = data || null;
+  localStorage.setItem("pendingRegister", JSON.stringify(G.pendingRegister));
+}
+
+function restorePendingRegister() {
+  try {
+    G.pendingRegister = JSON.parse(localStorage.getItem("pendingRegister") || "null");
+  } catch {
+    G.pendingRegister = null;
+  }
+}
+
+function clearPendingRegister() {
+  G.pendingRegister = null;
+  localStorage.removeItem("pendingRegister");
+}
+
+/* =========================
+   RECUPERAR CONTRASEÑA
+========================= */
+function openResetPasswordModal(prefillEmail = "") {
+  const email = prefillEmail || val("cl-email").trim() || G.pendingReset?.email || "";
+
+  setVal("reset-email", email);
+  setVal("reset-code", "");
+  setVal("reset-new-pass", "");
+  setVal("reset-confirm-pass", "");
+  setResetMessage("Escribe tu correo para enviarte un código de recuperación.");
+  showResetStep(1);
+  document.getElementById("reset-overlay")?.classList.remove("hidden");
+}
+
+function closeResetPasswordModal() {
+  document.getElementById("reset-overlay")?.classList.add("hidden");
+}
+
+function showResetStep(n) {
+  document.getElementById("reset-step1")?.classList.toggle("hidden", n !== 1);
+  document.getElementById("reset-step2")?.classList.toggle("hidden", n !== 2);
+  document.getElementById("reset-step3")?.classList.toggle("hidden", n !== 3);
+
+  document.getElementById("reset-actions-step1")?.classList.toggle("hidden", n !== 1);
+  document.getElementById("reset-actions-step2")?.classList.toggle("hidden", n !== 2);
+  document.getElementById("reset-actions-step3")?.classList.toggle("hidden", n !== 3);
+}
+
+function setResetMessage(message) {
+  const el = document.getElementById("reset-message");
+  if (el) el.textContent = message || "";
+}
+
+function savePendingReset(data) {
+  G.pendingReset = data || null;
+  localStorage.setItem("pendingReset", JSON.stringify(G.pendingReset));
+}
+
+function restorePendingReset() {
+  try {
+    G.pendingReset = JSON.parse(localStorage.getItem("pendingReset") || "null");
+  } catch {
+    G.pendingReset = null;
+  }
+}
+
+function clearPendingReset() {
+  G.pendingReset = null;
+  localStorage.removeItem("pendingReset");
+}
+
+async function requestPasswordResetCode() {
+  const email = val("reset-email").trim().toLowerCase();
+
+  if (!email) {
+    toast("Escribe tu correo.", "error");
+    return;
+  }
+
+  try {
+    const data = await api("/api/auth/request-reset-code", "POST", { email });
+
+    savePendingReset({
+      email,
+      codeVerified: false
+    });
+
+    setVal("reset-email", email);
+    setVal("reset-code", "");
+    setResetMessage(data.message || "Te enviamos un código de recuperación a tu correo.");
+    showResetStep(2);
+    toast(data.message || "Código enviado.", "success");
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+async function verifyPasswordResetCode() {
+  const email = (G.pendingReset?.email || val("reset-email").trim()).toLowerCase();
+  const code = val("reset-code").trim();
+
+  if (!email) {
+    toast("No se encontró el correo.", "error");
+    return;
+  }
+
+  if (code.length !== 6) {
+    return;
+  }
+
+  try {
+    const data = await api("/api/auth/verify-reset-code", "POST", {
+      email,
+      code
+    });
+
+    savePendingReset({
+      email,
+      code,
+      codeVerified: true
+    });
+
+    setResetMessage(data.message || "Código correcto. Ahora escribe tu nueva contraseña.");
+    showResetStep(3);
+    toast(data.message || "Código verificado.", "success");
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+async function resendPasswordResetCode() {
+  const email = (G.pendingReset?.email || val("reset-email").trim()).toLowerCase();
+
+  if (!email) {
+    toast("No se encontró el correo para reenviar el código.", "error");
+    return;
+  }
+
+  try {
+    const data = await api("/api/auth/resend-reset-code", "POST", { email });
+    setVal("reset-code", "");
+    setResetMessage(data.message || "Te enviamos un nuevo código.");
+    toast(data.message || "Código reenviado.", "success");
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+async function confirmPasswordReset() {
+  const email = (G.pendingReset?.email || val("reset-email").trim()).toLowerCase();
+  const code = G.pendingReset?.code || val("reset-code").trim();
+  const newPassword = val("reset-new-pass");
+  const confirmPassword = val("reset-confirm-pass");
+
+  if (!email) {
+    toast("No se encontró el correo.", "error");
+    return;
+  }
+
+  if (!code) {
+    toast("No se encontró el código de verificación.", "error");
+    return;
+  }
+
+  if (!newPassword || !confirmPassword) {
+    toast("Escribe y confirma tu nueva contraseña.", "error");
+    return;
+  }
+
+  if (newPassword.length < 6) {
+    toast("La nueva contraseña debe tener al menos 6 caracteres.", "error");
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    toast("Las contraseñas no coinciden.", "error");
+    return;
+  }
+
+  try {
+    const data = await api("/api/auth/confirm-reset-password", "POST", {
+      email,
+      code,
+      newPassword
+    });
+
+    clearPendingReset();
+    closeResetPasswordModal();
+
+    setVal("cl-email", email);
+    setVal("cl-pass", "");
+
+    if (data.token && data.user) {
+      setSession(data.token, data.user);
+      toast(data.message || "Contraseña actualizada correctamente.", "success");
+      goTo("screen-menu-client");
+      loadCuenta();
+      return;
+    }
+
+    toast(data.message || "Contraseña actualizada correctamente. Inicia sesión.", "success");
+    goTo("screen-login-client");
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+/* =========================
+   AUTH ADMIN
+========================= */
+async function loginAdmin() {
+  const email = val("adm-email").trim();
+  const password = val("adm-pass");
+
+  if (!email || !password) {
+    toast("Completa correo y contraseña.", "error");
+    return;
+  }
+
+  try {
+    const data = await api("/api/auth/login", "POST", { email, password });
+
+    if (!data.user.isAdmin) {
+      toast("Acceso denegado. No tienes permisos de administrador.", "error");
+      return;
+    }
+
+    setSession(data.token, data.user);
+    toast("¡Bienvenido al panel!", "success");
+    showAdmin();
+    await loadAdminData();
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+function adminLogout() {
+  clearSession();
+  closeSidebar();
+  toast("Sesión cerrada.", "info");
+  goTo("screen-splash");
+}
+
+/* =========================
+   NUEVA PRENDA CLIENTE
+========================= */
+function resetNuevaPrenda() {
+  G.material = "";
+  setVal("np-nombre", "");
+  setVal("np-cantidad", "1");
+  setVal("np-instrucciones", "");
+  setVal("np-entrega", "");
+  document.querySelectorAll(".mat-btn").forEach(b => b.classList.remove("selected"));
+  showStep(1);
+}
+
+function showStep(n) {
+  document.getElementById("np-step1")?.classList.toggle("hidden", n !== 1);
+  document.getElementById("np-step2")?.classList.toggle("hidden", n !== 2);
+}
+
+function selectMaterial(btn) {
+  document.querySelectorAll(".mat-btn").forEach(b => b.classList.remove("selected"));
+  btn.classList.add("selected");
+  G.material = btn.textContent.trim();
+}
+
+function npContinuar() {
+  const nombre = val("np-nombre").trim();
+  const cantidad = parseInt(val("np-cantidad")) || 0;
+
+  if (!nombre) {
+    toast("Escribe el nombre de la prenda.", "error");
+    return;
+  }
+
+  if (cantidad < 1) {
+    toast("La cantidad debe ser al menos 1.", "error");
+    return;
+  }
+
+  if (!G.material) {
+    toast("Selecciona el material.", "error");
+    return;
+  }
+
+  showStep(2);
+  aplicarLimitesFechaEntrega();
+
+  const el = document.getElementById("np-entrega");
+  if (el) {
+    setTimeout(() => {
+      aplicarLimitesFechaEntrega();
+    }, 100);
+  }
+}
+
+function npVolver() {
+  showStep(1);
+}
+
+async function npFinalizar() {
+  if (!G.token) {
+    toast("Debes iniciar sesión.", "error");
+    return;
+  }
+
+  validarFechaEntregaInput();
+
+  const tipoPrenda = val("np-nombre").trim();
+  const cantidad = parseInt(val("np-cantidad")) || 1;
+  const fechaEntrega = val("np-entrega");
+  const notas = val("np-instrucciones").trim();
+
+  if (!tipoPrenda) {
+    toast("Escribe el nombre de la prenda.", "error");
+    return;
+  }
+
+  if (!G.material) {
+    toast("Selecciona el material.", "error");
+    return;
+  }
+
+  if (!fechaEntrega) {
+    toast("Selecciona la fecha de entrega.", "error");
+    return;
+  }
+
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  const minFecha = new Date(hoy);
+  const maxFecha = new Date(hoy);
+  maxFecha.setDate(maxFecha.getDate() + 30);
+  maxFecha.setHours(0, 0, 0, 0);
+
+  const fechaSeleccionada = new Date(`${fechaEntrega}T00:00:00`);
+
+  if (fechaSeleccionada < minFecha) {
+    toast("La fecha de entrega debe ser desde hoy.", "error");
+    return;
+  }
+
+  if (fechaSeleccionada > maxFecha) {
+    toast("Solo puedes elegir una fecha dentro de los próximos 30 días.", "error");
+    return;
+  }
+
+  try {
+    const payload = {
+      tipoPrenda,
+      material: G.material,
+      cantidad,
+      fechaEntrega,
+      notas
+    };
+
+    const data = await api("/api/orders", "POST", payload, true);
+
+    let folioReal =
+      data?.order?.Folio ||
+      data?.order?.folio ||
+      data?.Folio ||
+      data?.folio ||
+      "";
+
+    if (!folioReal) {
+      const myOrders = await api("/api/orders/my", "GET", null, true);
+      const pedidos = Array.isArray(myOrders?.orders) ? myOrders.orders : [];
+
+      const coincidencias = pedidos.filter(p =>
+        String(p?.tipoPrenda || "").trim().toLowerCase() === tipoPrenda.toLowerCase() &&
+        String(p?.material || "").trim().toLowerCase() === String(G.material || "").trim().toLowerCase() &&
+        Number(p?.cantidad || 0) === Number(cantidad) &&
+        String(p?.FechaEntrega || p?.fechaEntrega || "").slice(0, 10) === fechaEntrega
+      );
+
+      coincidencias.sort((a, b) => {
+        const fa = new Date(a?.created_at || a?.fechaIngreso || a?.updated_at || 0).getTime();
+        const fb = new Date(b?.created_at || b?.fechaIngreso || b?.updated_at || 0).getTime();
+        return fb - fa;
+      });
+
+      folioReal = coincidencias[0]?.Folio || coincidencias[0]?.folio || "";
+    }
+
+    resetNuevaPrenda();
+    goTo("screen-menu-client");
+
+    mostrarModalConfirmacion({
+      ...data,
+      order: {
+        ...(data?.order || {}),
+        Folio: folioReal || data?.order?.Folio || data?.Folio || data?.folio || "—"
+      }
+    });
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+/* =========================
+   CAMBIO 1: QR CON FONDO BLANCO FIJO
+   Se fuerza fondo blanco en el canvas y su contenedor
+   para que sea escaneable en modo oscuro.
+========================= */
+function renderQREnCanvas(canvas, folio) {
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  canvas.width = 180;
+  canvas.height = 180;
+
+  // Fondo blanco fijo (independiente del tema del dispositivo)
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const tmpDiv = document.createElement("div");
+  tmpDiv.style.position = "absolute";
+  tmpDiv.style.left = "-9999px";
+  document.body.appendChild(tmpDiv);
+
+  try {
+    new QRCode(tmpDiv, {
+      text: String(folio).trim(),
+      width: 180,
+      height: 180,
+      colorDark: "#1a1a1a",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.M
+    });
+
+    setTimeout(() => {
+      const qrCanvas = tmpDiv.querySelector("canvas");
+      const qrImg = tmpDiv.querySelector("img");
+
+      // Redibujar sobre fondo blanco
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (qrCanvas) {
+        canvas.width = qrCanvas.width;
+        canvas.height = qrCanvas.height;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(qrCanvas, 0, 0);
+      } else if (qrImg) {
+        const img = new Image();
+        img.onload = () => {
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0);
+        };
+        img.src = qrImg.src;
+      }
+
+      document.body.removeChild(tmpDiv);
+    }, 200);
+  } catch (e) {
+    console.warn("QR no disponible:", e);
+    try { document.body.removeChild(tmpDiv); } catch (_) {}
+  }
+}
+
+function mostrarModalConfirmacion(data) {
+  const order = data?.order || data?.pedido || data || {};
+
+  const folio =
+    order?.Folio ||
+    order?.folio ||
+    data?.Folio ||
+    data?.folio ||
+    "—";
+
+  const ahora = new Date();
+
+  const fecha = ahora.toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric"
+  });
+
+  const hora = ahora.toLocaleTimeString("es-MX", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+
+  document.getElementById("conf-folio").textContent = folio;
+  document.getElementById("conf-fecha").textContent = fecha;
+  document.getElementById("conf-hora").textContent = hora;
+
+  const canvas = document.getElementById("conf-qr-canvas");
+
+  // Aplicar fondo blanco al contenedor del canvas también
+  const qrWrap = canvas?.closest(".conf-qr-wrap");
+  if (qrWrap) {
+    qrWrap.style.background = "#ffffff";
+    qrWrap.style.padding = "12px";
+    qrWrap.style.borderRadius = "8px";
+    qrWrap.style.display = "inline-block";
+  }
+
+  if (!canvas) {
+    document.getElementById("modal-confirmacion")?.classList.remove("hidden");
+    return;
+  }
+
+  // Usar la función centralizada de renderizado de QR
+  renderQREnCanvas(canvas, folio);
+
+  document.getElementById("modal-confirmacion")?.classList.remove("hidden");
+}
+
+function cerrarModalConfirmacion() {
+  document.getElementById("modal-confirmacion")?.classList.add("hidden");
+}
+
+/* =========================
+   CAMBIO 2: MODAL QR REUTILIZABLE
+   Para ver el QR de cualquier pedido desde Mis Prendas
+========================= */
+function createQRModal() {
+  if (document.getElementById("qr-modal-overlay")) return;
+
+  const overlay = document.createElement("div");
+  overlay.id = "qr-modal-overlay";
+  overlay.className = "modal-overlay hidden";
+  overlay.innerHTML = `
+    <div class="modal-box" style="max-width:320px; text-align:center;">
+      <div class="modal-hd">
+        <h3>Código QR del pedido</h3>
+        <button class="modal-x" onclick="closeQRModal()" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modal-bd" style="display:flex; flex-direction:column; align-items:center; gap:12px; padding:16px 0;">
+        <p id="qr-modal-folio" style="font-weight:700; font-size:1.1rem; letter-spacing:.05em;"></p>
+        <div id="qr-modal-canvas-wrap" style="background:#ffffff; padding:12px; border-radius:8px; display:inline-block;">
+          <canvas id="qr-modal-canvas"></canvas>
+        </div>
+        <p style="font-size:.78rem; color:#888; margin:0;">Escanea este código para consultar tu pedido</p>
+      </div>
+      <div class="modal-ft" style="justify-content:center;">
+        <button class="btn-dark" onclick="closeQRModal()">Cerrar</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+}
+
+function abrirQRPedido(folio) {
+  if (!folio || folio === "—") {
+    toast("No hay folio disponible para este pedido.", "error");
+    return;
+  }
+
+  const overlay = document.getElementById("qr-modal-overlay");
+  if (!overlay) return;
+
+  setText("qr-modal-folio", folio);
+
+  const canvas = document.getElementById("qr-modal-canvas");
+  renderQREnCanvas(canvas, folio);
+
+  overlay.classList.remove("hidden");
+}
+
+function closeQRModal() {
+  document.getElementById("qr-modal-overlay")?.classList.add("hidden");
+}
+
+/* =========================
+   ACTIVAR PEDIDO DESDE QR POR IMAGEN
+========================= */
+async function leerQRYActivarPedido() {
+  if (!G.token) {
+    toast("Debes iniciar sesión.", "error");
+    return;
+  }
+
+  if (typeof jsQR === "undefined") {
+    toast("Falta cargar la librería jsQR en el HTML.", "error");
+    return;
+  }
+
+  const input = document.getElementById("qr-image-input");
+  const file = input?.files?.[0];
+
+  if (!file) {
+    toast("Selecciona una imagen con el QR.", "error");
+    return;
+  }
+
+  try {
+    const qrText = await decodificarQRDesdeImagen(file);
+
+    if (!qrText) {
+      toast("No se pudo leer el QR de la imagen.", "error");
+      return;
+    }
+
+    let payloadQR = null;
+
+    try {
+      payloadQR = JSON.parse(qrText);
+    } catch {
+      payloadQR = {
+        folio_local: String(qrText).trim()
+      };
+    }
+
+    const folioLeidoRaw = String(payloadQR.folio_local || payloadQR.folio || qrText || "").trim();
+    const folioLeido = folioLeidoRaw.startsWith("#") ? folioLeidoRaw.toUpperCase() : `#${folioLeidoRaw.toUpperCase()}`;
+
+    setText("qr-folio-leido", folioLeido || "—");
+    setText("qr-folio-render", folioLeido || "—");
+    setText("qr-mensaje", "QR leído correctamente.");
+    document.getElementById("qr-resultado")?.style.setProperty("display", "block");
+
+    if (!folioLeido || folioLeido === "#") {
+      throw new Error("No se pudo obtener un folio válido desde el QR.");
+    }
+
+    const data = await api(`/api/worker/activate-by-folio/${encodeURIComponent(folioLeido)}`, "POST", {}, false);
+
+    const folioRender =
+      data?.order?.Folio ||
+      data?.order?.folio ||
+      folioLeido ||
+      "—";
+
+    setText("qr-folio-render", folioRender);
+    setText("qr-mensaje", `Pedido activado correctamente. Folio leído: ${folioLeido}`);
+    toast(`Pedido activado. Folio leído: ${folioLeido}`, "success");
+  } catch (err) {
+    toast(err.message || "No se pudo activar el pedido desde el QR.", "error");
+    setText("qr-mensaje", err.message || "Error");
+    document.getElementById("qr-resultado")?.style.setProperty("display", "block");
+  }
+}
+
+function decodificarQRDesdeImagen(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const img = new Image();
+
+      img.onload = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+          if (!code || !code.data) {
+            resolve(null);
+            return;
+          }
+
+          resolve(code.data);
+        } catch (e) {
+          reject(e);
+        }
+      };
+
+      img.onerror = () => reject(new Error("No se pudo cargar la imagen."));
+      img.src = reader.result;
+    };
+
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo."));
+    reader.readAsDataURL(file);
+  });
+}
+
+/* =========================
+   PANTALLAS CLIENTE
+========================= */
+
+async function loadMisPrendas() {
+  const list = document.getElementById("mis-prendas-list");
+  if (!list) return;
+
+  list.innerHTML = '<p class="empty-msg">Cargando…</p>';
+
+  try {
+    const data = await api("/api/orders/my", "GET", null, true);
+    const pedidos = data.orders || [];
+
+    if (!pedidos.length) {
+      list.innerHTML = '<p class="empty-msg">No tienes prendas registradas aún.</p>';
+      return;
+    }
+
+    list.innerHTML = pedidos.map(p => {
+      const folio = esc(p.Folio || p.folio || "");
+      const folioRaw = String(p.Folio || p.folio || "").trim();
+
+      const fotos = Array.isArray(p.fotos) ? p.fotos : [];
+      const fotosHtml = fotos.length
+        ? `
+          <div class="pedido-fotos">
+            ${fotos.map(f => {
+              const fullSrc = fotoUrl(f.url);
+              return `
+                <div class="pedido-foto-item">
+                  <img
+                    src="${fullSrc}"
+                    data-fullsrc="${fullSrc}"
+                    class="clickable-photo"
+                    alt="Foto ${folio}"
+                    loading="lazy"
+                    referrerpolicy="no-referrer"
+                  >
+                  <span>${esc(f.fecha_hora || "")}</span>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        `
+        : `<p class="sin-fotos">Aún no hay fotos para este pedido.</p>`;
+
+      // CAMBIO 2: Botón para ver QR del pedido
+      const qrBtnHtml = folioRaw
+        ? `<button
+             class="btn-qr-pedido"
+             onclick="abrirQRPedido('${folioRaw.replace(/'/g, "\\'")}')"
+             title="Ver QR del pedido"
+             style="
+               display:inline-flex;
+               align-items:center;
+               gap:6px;
+               margin-top:10px;
+               padding:7px 14px;
+               background:transparent;
+               border:1.5px solid #e63329;
+               color:#e63329;
+               border-radius:8px;
+               font-size:.8rem;
+               font-weight:600;
+               cursor:pointer;
+               transition:background .15s, color .15s;
+             "
+             onmouseover="this.style.background='#e63329';this.style.color='#fff'"
+             onmouseout="this.style.background='transparent';this.style.color='#e63329'"
+           >
+             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+               <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+               <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/>
+               <rect x="19" y="14" width="2" height="2"/><rect x="14" y="19" width="2" height="2"/>
+               <rect x="17" y="17" width="2" height="5"/><rect x="19" y="19" width="4" height="2"/>
+             </svg>
+             Ver QR
+           </button>`
+        : "";
+
+      return `
+        <div class="prenda-item pedido-card-col">
+          <div class="prenda-item-top">
+            <div class="prenda-item-info">
+              <span class="prenda-item-name">${esc(p.tipoPrenda)}</span>
+              <span class="prenda-item-sub">${fmtDate(p.fechaIngreso)} · ${esc(p.material || "")} · ${p.cantidad} pza.</span>
+              <span>${badgeHtml(p.Estado)}</span>
+            </div>
+            <span class="prenda-item-id">${folio}</span>
+          </div>
+          ${fotosHtml}
+          ${qrBtnHtml}
+        </div>
+      `;
+    }).join("");
+  } catch (err) {
+    list.innerHTML = '<p class="empty-msg">Error al cargar prendas.</p>';
+  }
+}
+
+async function buscarPedido() {
+  const folio = val("tracking-input").trim().toUpperCase();
+
+  if (!folio) {
+    toast("Ingresa un ID de seguimiento.", "error");
+    return;
+  }
+
+  const result = document.getElementById("tracking-result");
+  const empty = document.getElementById("tracking-empty");
+
+  result?.classList.add("hidden");
+  if (empty) empty.style.display = "none";
+
+  try {
+    const data = await api(`/api/orders/track/${encodeURIComponent(folio)}`);
+    const p = data.order;
+
+    setText("tr-id", p.Folio || folio);
+    setText("tr-prenda", p.tipoPrenda || "—");
+    setText("tr-cliente", p.cliente || "—");
+    setText("tr-entrega", fmtDate(p.FechaEntrega));
+    setText("tr-estado", estadoLabel(p.Estado));
+
+    result?.classList.remove("hidden");
+  } catch (err) {
+    if (empty) {
+      empty.style.display = "block";
+      empty.textContent = `No se encontró ningún pedido con ID ${folio}.`;
+    }
+  }
+}
+
+function loadCuenta() {
+  if (!G.user) return;
+  setText("cuenta-name", G.user.nombreCompleto || G.user.email || "");
+  setText("cuenta-email", G.user.email || "");
+}
+
+/* =========================
+   ADMIN
+========================= */
+function showAdmin() {
+  document.querySelectorAll(".screen").forEach(s => {
+    s.classList.remove("active");
+    s.style.display = "";
+  });
+
+  const adminScreen = document.getElementById("screen-admin");
+  if (adminScreen) {
+    adminScreen.style.display = "flex";
+    adminScreen.classList.add("active");
+  }
+
+  setText("adm-user-pill", (G.user?.email || "Admin").split("@")[0]);
+}
+
+async function loadAdminData() {
+  try {
+    const [ordersData, clientsData] = await Promise.all([
+      api("/api/admin/orders", "GET", null, true),
+      api("/api/admin/clients", "GET", null, true)
+    ]);
+
+    G.orders = ordersData.orders || [];
+    G.filtered = [...G.orders];
+
+    updateMetrics();
+    renderDashRecent();
+    applyFilters();
+    renderClientes(clientsData.clients || []);
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+function admNav(btn) {
+  const targetId = btn.dataset.view;
+
+  document.querySelectorAll(".adm-nav-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+
+  document.querySelectorAll(".adm-view").forEach(v => v.classList.remove("active-adm-view"));
+  document.getElementById(targetId)?.classList.add("active-adm-view");
+
+  const titles = {
+    "adm-view-dashboard": "Dashboard",
+    "adm-view-pedidos": "Pedidos",
+    "adm-view-nuevo": "Nuevo Pedido",
+    "adm-view-clientes": "Clientes"
+  };
+
+  setText("adm-page-title", titles[targetId] || "");
+
+  if (window.innerWidth < 900) {
+    closeSidebar();
+  }
+}
+
+function admNavById(viewId) {
+  const btn = document.querySelector(`[data-view="${viewId}"]`);
+  if (btn) admNav(btn);
+}
+
+function updateMetrics() {
+  const cnt = { pendiente: 0, en_proceso: 0, planchado: 0, listo: 0, entregado: 0 };
+
+  G.orders.forEach(o => {
+    if (cnt[o.Estado] !== undefined) cnt[o.Estado]++;
+  });
+
+  setText("m-total", String(G.orders.length));
+  setText("m-pend", String(cnt.pendiente));
+  setText("m-proc", String(cnt.en_proceso + cnt.planchado));
+  setText("m-list", String(cnt.listo));
+  setText("m-ent", String(cnt.entregado));
+}
+
+function renderDashRecent() {
+  const tbody = document.getElementById("dash-tbody");
+  if (!tbody) return;
+
+  const list = G.orders.slice(0, 6);
+
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="t-empty">Sin pedidos aún.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = list.map(o => `
+    <tr>
+      <td><strong>${esc(o.Folio || "—")}</strong></td>
+      <td>${esc(o.cliente)}</td>
+      <td>${esc(o.tipoPrenda)}</td>
+      <td>${fmtDate(o.fechaIngreso)}</td>
+      <td>${badgeHtml(o.Estado)}</td>
+      <td>
+        <div class="tbl-actions">
+          <button class="tbl-btn" onclick="openModal('${o.id}')">👁</button>
+        </div>
+      </td>
+    </tr>
+  `).join("");
+}
+
+function applyFilters() {
+  const search = (document.getElementById("adm-search")?.value || "").toLowerCase();
+  const status = document.getElementById("adm-filter-st")?.value || "";
+
+  G.filtered = G.orders.filter(o => {
+    const matchText = !search ||
+      (o.cliente || "").toLowerCase().includes(search) ||
+      (o.tipoPrenda || "").toLowerCase().includes(search) ||
+      (o.Folio || "").toLowerCase().includes(search);
+
+    const matchStatus = !status || o.Estado === status;
+    return matchText && matchStatus;
+  });
+
+  renderPedidosTable();
+}
+
+function renderPedidosTable() {
+  const tbody = document.getElementById("pedidos-tbody");
+  if (!tbody) return;
+
+  if (!G.filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="9" class="t-empty">No hay pedidos que coincidan.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = G.filtered.map(o => `
+    <tr>
+      <td><strong>${esc(o.Folio || "—")}</strong></td>
+      <td>${esc(o.cliente)}</td>
+      <td>${esc(o.tipoPrenda)}</td>
+      <td>${esc(o.material || "—")}</td>
+      <td style="text-align:center">${o.cantidad || 1}</td>
+      <td>${fmtDate(o.fechaIngreso)}</td>
+      <td>${fmtDate(o.FechaEntrega)}</td>
+      <td>${badgeHtml(o.Estado)}</td>
+      <td>
+        <div class="tbl-actions">
+          <button class="tbl-btn" onclick="openModal('${o.id}')">👁</button>
+          <button class="tbl-btn" onclick="admOpenEdit('${o.id}')">✏️</button>
+          <button class="tbl-btn del" onclick="confirmDelete('${o.id}')">🗑</button>
+        </div>
+      </td>
+    </tr>
+  `).join("");
+}
+
+function admOpenNew() {
+  ["adm-f-cliente", "adm-f-telefono", "adm-f-prenda", "adm-f-cantidad", "adm-f-precio", "adm-f-notas"].forEach(id => setVal(id, ""));
+  setVal("adm-edit-id", "");
+  setVal("adm-f-material", "");
+  setVal("adm-f-ingreso", today());
+  setVal("adm-f-entrega", "");
+  setVal("adm-f-estado", "pendiente");
+  setText("adm-form-title", "Registrar nuevo pedido");
+  const row = document.getElementById("adm-status-row");
+  if (row) row.style.display = "none";
+}
+
+function admOpenEdit(id) {
+  const o = G.orders.find(x => x.id === id);
+  if (!o) return;
+
+  setVal("adm-edit-id", id);
+  setVal("adm-f-cliente", o.cliente || "");
+  setVal("adm-f-telefono", o.telefono || "");
+  setVal("adm-f-prenda", o.tipoPrenda || "");
+  setVal("adm-f-material", o.material || "");
+  setVal("adm-f-cantidad", o.cantidad || 1);
+  setVal("adm-f-precio", o.precio || "");
+  setVal("adm-f-ingreso", o.fechaIngreso || "");
+  setVal("adm-f-entrega", o.FechaEntrega || "");
+  setVal("adm-f-notas", o.notas || "");
+  setVal("adm-f-estado", o.Estado || "pendiente");
+
+  setText("adm-form-title", "Editar pedido");
+  const row = document.getElementById("adm-status-row");
+  if (row) row.style.display = "block";
+
+  closeModal();
+  admNavById("adm-view-nuevo");
+}
+
+async function admSaveOrder() {
+  const editId = val("adm-edit-id");
+  const cliente = val("adm-f-cliente").trim();
+  const prenda = val("adm-f-prenda").trim();
+  const cantidad = parseInt(val("adm-f-cantidad")) || 0;
+  const ingreso = val("adm-f-ingreso");
+  const fechaEntrega = val("adm-f-entrega");
+
+  if (!cliente) {
+    toast("El nombre del cliente es obligatorio.", "error");
+    return;
+  }
+
+  if (!prenda) {
+    toast("El nombre de la prenda es obligatorio.", "error");
+    return;
+  }
+
+  if (cantidad < 1) {
+    toast("La cantidad debe ser al menos 1.", "error");
+    return;
+  }
+
+  if (!ingreso || !fechaEntrega) {
+    toast("Debes completar las fechas.", "error");
+    return;
+  }
+
+  if (fechaEntrega < ingreso) {
+    toast("La entrega no puede ser antes del ingreso.", "error");
+    return;
+  }
+
+  const payload = {
+    cliente,
+    telefono: val("adm-f-telefono").trim(),
+    tipoPrenda: prenda,
+    material: val("adm-f-material"),
+    cantidad,
+    precio: parseFloat(val("adm-f-precio")) || null,
+    fechaIngreso: ingreso,
+    FechaEntrega: fechaEntrega,
+    notas: val("adm-f-notas").trim()
+  };
+
+  try {
+    if (editId) {
+      payload.Estado = val("adm-f-estado");
+      await api(`/api/admin/orders/${editId}`, "PATCH", payload, true);
+      toast("Pedido actualizado.", "success");
+    } else {
+      await api("/api/admin/orders", "POST", payload, true);
+      toast("Pedido registrado.", "success");
+    }
+
+    admOpenNew();
+    admNavById("adm-view-pedidos");
+    await loadAdminData();
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+function openModal(id) {
+  const o = G.orders.find(x => x.id === id);
+  if (!o) return;
+
+  G.currentId = id;
+
+  const fotos = Array.isArray(o.fotos) ? o.fotos : [];
+  const fotosHtml = fotos.length
+    ? `
+      <div class="pedido-fotos" style="margin-top:16px;">
+        ${fotos.map(f => {
+          const fullSrc = fotoUrl(f.url);
+          return `
+            <div class="pedido-foto-item">
+              <img
+                src="${fullSrc}"
+                data-fullsrc="${fullSrc}"
+                class="clickable-photo"
+                alt="Foto ${esc(o.Folio)}"
+                loading="lazy"
+                referrerpolicy="no-referrer"
+              >
+              <span>${esc(f.fecha_hora || "")}</span>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `
+    : `<p class="sin-fotos" style="margin-top:16px;">Aún no hay fotos para este pedido.</p>`;
+
+  const modal = document.getElementById("modal-bd");
+  if (!modal) return;
+
+  modal.innerHTML = `
+    <div class="det-grid">
+      <div class="det-item"><span class="det-lbl">Folio</span><span class="det-val">${esc(o.Folio || "—")}</span></div>
+      <div class="det-item"><span class="det-lbl">Estado</span><span class="det-val">${badgeHtml(o.Estado)}</span></div>
+      <div class="det-item"><span class="det-lbl">Contador</span><span class="det-val">${o.Contador || "—"}</span></div>
+      <div class="det-item"><span class="det-lbl">Validado</span><span class="det-val">${o.Validado ? "✅ Sí" : "⏳ No"}</span></div>
+      <div class="det-item"><span class="det-lbl">Cliente</span><span class="det-val">${esc(o.cliente)}</span></div>
+      <div class="det-item"><span class="det-lbl">Teléfono</span><span class="det-val">${esc(o.telefono || "—")}</span></div>
+      <div class="det-item"><span class="det-lbl">Prenda</span><span class="det-val">${esc(o.tipoPrenda)}</span></div>
+      <div class="det-item"><span class="det-lbl">Material</span><span class="det-val">${esc(o.material || "—")}</span></div>
+      <div class="det-item"><span class="det-lbl">Cantidad</span><span class="det-val">${o.cantidad || 1} pza.</span></div>
+      <div class="det-item"><span class="det-lbl">Precio</span><span class="det-val">${o.precio ? `$${parseFloat(o.precio).toFixed(2)} MXN` : "—"}</span></div>
+      <div class="det-item"><span class="det-lbl">Ingreso</span><span class="det-val">${fmtDate(o.fechaIngreso)}</span></div>
+      <div class="det-item"><span class="det-lbl">Entrega est.</span><span class="det-val">${fmtDate(o.FechaEntrega)}</span></div>
+      ${o.notas ? `<div class="det-item full"><span class="det-lbl">Notas</span><span class="det-val">${esc(o.notas)}</span></div>` : ""}
+      <div class="det-item full">
+        <span class="det-lbl">Fotos</span>
+        <div class="det-val">${fotosHtml}</div>
+      </div>
+    </div>
+  `;
+
+  const st = document.getElementById("modal-st-sel");
+  if (st) st.value = o.Estado || "pendiente";
+
+  document.getElementById("modal-overlay")?.classList.remove("hidden");
+}
+
+function closeModal() {
+  document.getElementById("modal-overlay")?.classList.add("hidden");
+  G.currentId = null;
+}
+
+async function admUpdateStatus() {
+  if (!G.currentId) return;
+
+  const newEstado = document.getElementById("modal-st-sel")?.value || "pendiente";
+
+  try {
+    await api(`/api/admin/orders/${G.currentId}`, "PATCH", {
+      Estado: newEstado
+    }, true);
+
+    toast("Estado actualizado.", "success");
+    closeModal();
+    await loadAdminData();
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+function admEditFromModal() {
+  if (G.currentId) admOpenEdit(G.currentId);
+}
+
+function confirmDelete(id) {
+  G.delId = id;
+  document.getElementById("confirm-overlay")?.classList.remove("hidden");
+}
+
+function closeConfirm() {
+  document.getElementById("confirm-overlay")?.classList.add("hidden");
+  G.delId = null;
+}
+
+async function executeDelete() {
+  if (!G.delId) return;
+
+  try {
+    await api(`/api/admin/orders/${G.delId}`, "DELETE", null, true);
+    toast("Pedido eliminado.", "info");
+    closeConfirm();
+    closeModal();
+    await loadAdminData();
+  } catch (err) {
+    toast(err.message, "error");
+  }
+}
+
+function renderClientes(clients) {
+  const tbody = document.getElementById("clientes-tbody");
+  if (!tbody) return;
+
+  if (!clients.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="t-empty">No hay clientes registrados.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = clients.map(c => `
+    <tr>
+      <td>${esc(c.nombreCompleto || c.email)}</td>
+      <td>${esc(c.email || "—")}</td>
+      <td>${esc(c.telefono || "—")}</td>
+      <td style="text-align:center">${c.totalPedidos || 0}</td>
+    </tr>
+  `).join("");
+}
+
+/* =========================
+   SIDEBAR ADMIN
+========================= */
+function toggleSidebar() {
+  const s = document.getElementById("adm-sidebar");
+  const ov = document.getElementById("sidebar-overlay");
+
+  if (!s || !ov) return;
+
+  const isOpen = s.classList.toggle("open");
+
+  if (isOpen) {
+    ov.classList.remove("hidden");
+  } else {
+    ov.classList.add("hidden");
+  }
+}
+
+function closeSidebar() {
+    document.getElementById("adm-sidebar")?.classList.remove("open");
+  document.getElementById("sidebar-overlay")?.classList.add("hidden");
+}
+
+/* =========================
+   RESPONSIVE UI
+========================= */
+function initResponsive() {
+  window.addEventListener("resize", handleResize);
+  window.addEventListener("orientationchange", handleResize);
+
+  handleResize();
+  enableTableScroll();
+  updateViewportClasses();
+
+  document.querySelectorAll(".adm-nav-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (window.innerWidth < 900) {
+        closeSidebar();
+      }
+    });
+  });
+}
+
+function handleResize() {
+  const sidebar = document.getElementById("adm-sidebar");
+  const overlay = document.getElementById("sidebar-overlay");
+
+  updateViewportClasses();
+  enableTableScroll();
+
+  if (!sidebar || !overlay) return;
+
+  if (window.innerWidth >= 900) {
+    sidebar.classList.remove("open");
+    overlay.classList.add("hidden");
+  }
+}
+
+function updateViewportClasses() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+
+  document.body.classList.remove("ui-mobile-small", "ui-mobile-large", "ui-tablet", "ui-desktop");
+
+  if (w <= 480) {
+    document.body.classList.add("ui-mobile-small");
+  } else if (w <= 900 && h <= 1000) {
+    document.body.classList.add("ui-mobile-large");
+  } else if (w <= 1200) {
+    document.body.classList.add("ui-tablet");
+  } else {
+    document.body.classList.add("ui-desktop");
+  }
+}
+
+function enableTableScroll() {
+  document.querySelectorAll(".tbl-wrap").forEach(wrap => {
+    wrap.style.overflowX = "auto";
+    wrap.style.webkitOverflowScrolling = "touch";
+  });
+}
+
+/* =========================
+   PHOTO VIEWER
+========================= */
+function createPhotoViewer() {
+  if (document.getElementById("photo-viewer-overlay")) return;
+
+  const overlay = document.createElement("div");
+  overlay.id = "photo-viewer-overlay";
+  overlay.className = "photo-viewer-overlay hidden";
+  overlay.innerHTML = `
+    <div class="photo-viewer-box">
+      <button id="photo-viewer-close" class="photo-viewer-close" aria-label="Cerrar imagen">✕</button>
+      <img id="photo-viewer-img" class="photo-viewer-img" src="" alt="Foto completa">
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+}
+
+function openImageViewer(src, alt = "Foto completa") {
+  const overlay = document.getElementById("photo-viewer-overlay");
+  const img = document.getElementById("photo-viewer-img");
+
+  if (!overlay || !img || !src) return;
+
+  img.src = src;
+  img.alt = alt;
+  overlay.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+}
+
+function closeImageViewer() {
+  const overlay = document.getElementById("photo-viewer-overlay");
+  const img = document.getElementById("photo-viewer-img");
+
+  if (!overlay || !img) return;
+
+  overlay.classList.add("hidden");
+  img.src = "";
+  document.body.style.overflow = "";
+}
+
+/* =========================
+   HELPERS
+========================= */
+function badgeHtml(Estado) {
+  const map = {
+    pendiente: ["b-pendiente", "⏳ Pendiente"],
+    en_proceso: ["b-en_proceso", "🔄 En proceso"],
+    planchado: ["b-planchado", "👔 Planchado"],
+    listo: ["b-listo", "✅ Listo"],
+    entregado: ["b-entregado", "🏠 Entregado"]
+  };
+  const [cls, label] = map[Estado] || ["b-pendiente", Estado || "—"];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function estadoLabel(Estado) {
+  const labels = {
+    pendiente: "Pendiente",
+    en_proceso: "En proceso",
+    planchado: "Planchado",
+    listo: "Listo",
+    entregado: "Entregado"
+  };
+  return labels[Estado] || Estado || "—";
+}
+
+function esc(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function val(id) {
+  return document.getElementById(id)?.value || "";
+}
+
+function setVal(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value;
+}
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function today() {
+  return formatLocalDate(new Date());
+}
+
+function formatLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function aplicarLimitesFechaEntrega() {
+  const el = document.getElementById("np-entrega");
+  if (!el) return;
+
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  const minFecha = new Date(hoy);
+  const maxFecha = new Date(hoy);
+  maxFecha.setDate(maxFecha.getDate() + 30);
+  maxFecha.setHours(0, 0, 0, 0);
+
+  const minStr = formatLocalDate(minFecha);
+  const maxStr = formatLocalDate(maxFecha);
+
+  el.setAttribute("min", minStr);
+  el.setAttribute("max", maxStr);
+
+  el.min = minStr;
+  el.max = maxStr;
+
+  if (!el.value) {
+    el.value = minStr;
+    return;
+  }
+
+  const valor = new Date(`${el.value}T00:00:00`);
+
+  if (isNaN(valor.getTime()) || valor < minFecha) {
+    el.value = minStr;
+    return;
+  }
+
+  if (valor > maxFecha) {
+    el.value = maxStr;
+  }
+}
+
+function validarFechaEntregaInput() {
+  const el = document.getElementById("np-entrega");
+  if (!el) return;
+
+  aplicarLimitesFechaEntrega();
+
+  if (!el.value) return;
+
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  const minFecha = new Date(hoy);
+  const maxFecha = new Date(hoy);
+  maxFecha.setDate(maxFecha.getDate() + 30);
+  maxFecha.setHours(0, 0, 0, 0);
+
+  const fechaSeleccionada = new Date(`${el.value}T00:00:00`);
+
+  if (fechaSeleccionada < minFecha) {
+    el.value = formatLocalDate(minFecha);
+    toast("En iPhone solo se permite fecha desde hoy.", "error");
+    return;
+  }
+
+  if (fechaSeleccionada > maxFecha) {
+    el.value = formatLocalDate(maxFecha);
+    toast("En iPhone solo se permite hasta 30 días después.", "error");
+    return;
+  }
+}
+
+function fmtDate(value) {
+  if (!value) return "—";
+
+  if (String(value).includes("T")) {
+    const d1 = new Date(value);
+    if (!isNaN(d1.getTime())) {
+      return d1.toLocaleDateString("es-MX", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      });
+    }
+  }
+
+  const d2 = new Date(`${value}T00:00:00`);
+  if (isNaN(d2.getTime())) return value;
+
+  return d2.toLocaleDateString("es-MX", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  });
+}
+
+function toast(message, type = "info") {
+  let wrap = document.getElementById("toast-wrap");
+
+  if (!wrap) {
+    wrap = document.createElement("div");
+    wrap.id = "toast-wrap";
+    wrap.style.position = "fixed";
+    wrap.style.top = "16px";
+    wrap.style.right = "16px";
+    wrap.style.zIndex = "9999";
+    wrap.style.display = "flex";
+    wrap.style.flexDirection = "column";
+    wrap.style.gap = "10px";
+    document.body.appendChild(wrap);
+  }
+
+  const item = document.createElement("div");
+  item.textContent = message;
+  item.style.padding = "12px 16px";
+  item.style.borderRadius = "12px";
+  item.style.color = "#fff";
+  item.style.fontWeight = "600";
+  item.style.boxShadow = "0 10px 25px rgba(0,0,0,.18)";
+  item.style.maxWidth = "320px";
+  item.style.wordBreak = "break-word";
+  item.style.background =
+    type === "success" ? "#0f9d58" :
+    type === "error" ? "#d93025" :
+    "#3c4043";
+
+  wrap.appendChild(item);
+
+  setTimeout(() => {
+    item.style.opacity = "0";
+    item.style.transform = "translateY(-6px)";
+    item.style.transition = "all .25s ease";
+  }, 2800);
+
+  setTimeout(() => {
+    item.remove();
+  }, 3200);
+}

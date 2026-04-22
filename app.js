@@ -716,6 +716,16 @@ async function npFinalizar() {
   const fechaEntrega = val("np-entrega");
   const notas = val("np-instrucciones").trim();
 
+  if (!tipoPrenda) {
+    toast("Escribe el nombre de la prenda.", "error");
+    return;
+  }
+
+  if (!G.material) {
+    toast("Selecciona el material.", "error");
+    return;
+  }
+
   if (!fechaEntrega) {
     toast("Selecciona la fecha de entrega.", "error");
     return;
@@ -743,55 +753,39 @@ async function npFinalizar() {
   }
 
   try {
-    const payload = {
-      tipoPrenda,
-      material: G.material,
-      cantidad,
-      fechaEntrega,
-      notas
+    // Folio local temporal: NO se guarda en Render
+    const ahora = new Date();
+    const anio = ahora.getFullYear();
+    const mes = String(ahora.getMonth() + 1).padStart(2, "0");
+    const dia = String(ahora.getDate()).padStart(2, "0");
+    const hora = String(ahora.getHours()).padStart(2, "0");
+    const min = String(ahora.getMinutes()).padStart(2, "0");
+    const seg = String(ahora.getSeconds()).padStart(2, "0");
+
+    const random4 = Math.floor(1000 + Math.random() * 9000);
+    const folioLocal = `QR-${anio}${mes}${dia}-${hora}${min}${seg}-${random4}`;
+
+    const dataLocal = {
+      ok: true,
+      localOnly: true,
+      message: "QR generado localmente. No se envió información a Render.",
+      order: {
+        Folio: folioLocal,
+        tipoPrenda,
+        material: G.material,
+        cantidad,
+        FechaEntrega: fechaEntrega,
+        notas
+      }
     };
-
-    const data = await api("/api/orders", "POST", payload, true);
-
-    let folioReal =
-      data?.order?.Folio ||
-      data?.order?.folio ||
-      data?.Folio ||
-      data?.folio ||
-      "";
-
-    if (!folioReal) {
-      const myOrders = await api("/api/orders/my", "GET", null, true);
-      const pedidos = Array.isArray(myOrders?.orders) ? myOrders.orders : [];
-
-      const coincidencias = pedidos.filter(p =>
-        String(p?.tipoPrenda || "").trim().toLowerCase() === tipoPrenda.toLowerCase() &&
-        String(p?.material || "").trim().toLowerCase() === String(G.material || "").trim().toLowerCase() &&
-        Number(p?.cantidad || 0) === Number(cantidad) &&
-        String(p?.FechaEntrega || p?.fechaEntrega || "").slice(0, 10) === fechaEntrega
-      );
-
-      coincidencias.sort((a, b) => {
-        const fa = new Date(a?.created_at || a?.fechaIngreso || a?.updated_at || 0).getTime();
-        const fb = new Date(b?.created_at || b?.fechaIngreso || b?.updated_at || 0).getTime();
-        return fb - fa;
-      });
-
-      folioReal = coincidencias[0]?.Folio || coincidencias[0]?.folio || "";
-    }
 
     resetNuevaPrenda();
     goTo("screen-menu-client");
+    mostrarModalConfirmacion(dataLocal);
 
-    mostrarModalConfirmacion({
-      ...data,
-      order: {
-        ...(data?.order || {}),
-        Folio: folioReal || data?.order?.Folio || data?.Folio || data?.folio || "—"
-      }
-    });
+    toast("QR generado sin registrar la prenda en Render.", "success");
   } catch (err) {
-    toast(err.message, "error");
+    toast(err.message || "No se pudo generar el QR.", "error");
   }
 }
 

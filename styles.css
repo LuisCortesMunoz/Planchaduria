@@ -1378,14 +1378,6 @@ button, input, select, textarea {
   white-space: nowrap;
 }
 
-.badge::before {
-  content: '';
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
 .b-pendiente  { background: #fef3c7; color: #d97706; }
 .b-en_proceso { background: #dbeafe; color: #2563eb; }
 .b-planchado  { background: #fce7f3; color: #db2777; }

@@ -735,7 +735,6 @@ async function npFinalizar() {
   hoy.setHours(0, 0, 0, 0);
 
   const minFecha = new Date(hoy);
-
   const maxFecha = new Date(hoy);
   maxFecha.setDate(maxFecha.getDate() + 30);
   maxFecha.setHours(0, 0, 0, 0);
@@ -753,39 +752,37 @@ async function npFinalizar() {
   }
 
   try {
-    // Folio local temporal: NO se guarda en Render
-    const ahora = new Date();
-    const anio = ahora.getFullYear();
-    const mes = String(ahora.getMonth() + 1).padStart(2, "0");
-    const dia = String(ahora.getDate()).padStart(2, "0");
-    const hora = String(ahora.getHours()).padStart(2, "0");
-    const min = String(ahora.getMinutes()).padStart(2, "0");
-    const seg = String(ahora.getSeconds()).padStart(2, "0");
-
-    const random4 = Math.floor(1000 + Math.random() * 9000);
-    const folioLocal = `QR-${anio}${mes}${dia}-${hora}${min}${seg}-${random4}`;
-
-    const dataLocal = {
-      ok: true,
-      localOnly: true,
-      message: "QR generado localmente. No se envió información a Render.",
-      order: {
-        Folio: folioLocal,
-        tipoPrenda,
-        material: G.material,
-        cantidad,
-        FechaEntrega: fechaEntrega,
-        notas
-      }
+    const payload = {
+      tipoPrenda,
+      material: G.material,
+      cantidad,
+      fechaEntrega,
+      notas
     };
+
+    const data = await api("/api/orders", "POST", payload, true);
+
+    const folioReal =
+      data?.order?.Folio ||
+      data?.order?.folio ||
+      data?.Folio ||
+      data?.folio ||
+      "—";
 
     resetNuevaPrenda();
     goTo("screen-menu-client");
-    mostrarModalConfirmacion(dataLocal);
 
-    toast("QR generado sin registrar la prenda en Render.", "success");
+    mostrarModalConfirmacion({
+      ...data,
+      order: {
+        ...(data?.order || {}),
+        Folio: folioReal
+      }
+    });
+
+    toast("Pedido registrado correctamente.", "success");
   } catch (err) {
-    toast(err.message || "No se pudo generar el QR.", "error");
+    toast(err.message || "No se pudo registrar el pedido.", "error");
   }
 }
 

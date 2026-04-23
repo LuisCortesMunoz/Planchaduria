@@ -8,6 +8,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+
+  <!-- ✅ NUEVO: estilo para badge listo_para_entrega -->
+  <style>
+    .b-listo_para_entrega {
+      background: #f59e0b;
+      color: #fff;
+    }
+  </style>
 </head>
 <body>
 
@@ -61,7 +69,6 @@
         <span class="back-arrow">←</span>
         <span class="back-text">Regresar</span>
       </button>
-
       <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
         <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
         <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
@@ -99,7 +106,6 @@
         <span class="back-arrow">←</span>
         <span class="back-text">Regresar</span>
       </button>
-
       <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
         <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
         <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
@@ -190,7 +196,6 @@
         <span class="back-arrow">←</span>
         <span class="back-text">Regresar</span>
       </button>
-
       <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
         <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
         <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
@@ -241,7 +246,6 @@
         <span class="back-arrow">←</span>
         <span class="back-text">Regresar</span>
       </button>
-
       <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
         <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
         <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
@@ -270,7 +274,6 @@
         <span class="back-arrow">←</span>
         <span class="back-text">Regresar</span>
       </button>
-
       <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
         <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
         <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
@@ -317,7 +320,6 @@
         <span class="back-arrow">←</span>
         <span class="back-text">Regresar</span>
       </button>
-
       <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
         <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
         <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
@@ -344,7 +346,6 @@
         <span class="back-arrow">←</span>
         <span class="back-text">Regresar</span>
       </button>
-
       <svg class="iron-icon sm" viewBox="0 0 80 60" fill="none">
         <path d="M10 40 Q10 20 35 20 L65 20 Q72 20 72 27 L72 34 Q72 40 65 40 Z" fill="#e63329"/>
         <rect x="26" y="40" width="36" height="6" rx="3" fill="#e63329"/>
@@ -454,14 +455,18 @@
       <div id="adm-view-pedidos" class="adm-view">
         <div class="adm-filters-bar">
           <input type="text" id="adm-search" class="adm-search-input" placeholder="🔍 Buscar cliente, prenda o ID…" oninput="applyFilters()"/>
+
+          <!-- ✅ NUEVO: listo_para_entrega agregado al filtro de estados -->
           <select id="adm-filter-st" class="adm-sel" onchange="applyFilters()">
             <option value="">Todos los estados</option>
             <option value="pendiente">Pendiente</option>
             <option value="en_proceso">En proceso</option>
             <option value="planchado">Planchado</option>
-            <option value="listo">Listo para entrega</option>
+            <option value="listo_para_entrega">Listo para entrega</option>
+            <option value="listo">Listo</option>
             <option value="entregado">Entregado</option>
           </select>
+
           <button class="btn-red" onclick="admNav(document.querySelector('[data-view=adm-view-nuevo]'));admOpenNew()">＋ Nuevo</button>
         </div>
 
@@ -522,13 +527,15 @@
             <textarea id="adm-f-notas" class="adm-textarea" rows="3" placeholder="Manchas, cuidados especiales, condición de la prenda…"></textarea>
           </div>
 
+          <!-- ✅ NUEVO: listo_para_entrega agregado al selector de estado en formulario de edición -->
           <div class="form-fld full-fld" id="adm-status-row" style="display:none">
             <label>Estado del pedido</label>
             <select id="adm-f-estado" class="adm-input">
               <option value="pendiente">Pendiente</option>
               <option value="en_proceso">En proceso</option>
               <option value="planchado">Planchado</option>
-              <option value="listo">Listo para entrega</option>
+              <option value="listo_para_entrega">Listo para entrega</option>
+              <option value="listo">Listo</option>
               <option value="entregado">Entregado</option>
             </select>
           </div>
@@ -567,12 +574,15 @@
       <button class="modal-x" onclick="closeModal()">✕</button>
     </div>
     <div class="modal-bd" id="modal-bd"></div>
+
+    <!-- ✅ NUEVO: listo_para_entrega agregado al selector de estado en modal de detalle -->
     <div class="modal-ft">
       <select id="modal-st-sel" class="adm-input" style="flex:1">
         <option value="pendiente">Pendiente</option>
         <option value="en_proceso">En proceso</option>
         <option value="planchado">Planchado</option>
-        <option value="listo">Listo para entrega</option>
+        <option value="listo_para_entrega">Listo para entrega</option>
+        <option value="listo">Listo</option>
         <option value="entregado">Entregado</option>
       </select>
       <button class="btn-outline-dark" onclick="admEditFromModal()">✏ Editar</button>
@@ -581,7 +591,7 @@
   </div>
 </div>
 
-<!-- MODAL CONFIRMACIÓN -->
+<!-- MODAL CONFIRMACIÓN ELIMINAR -->
 <div id="confirm-overlay" class="modal-overlay hidden">
   <div class="modal-box" style="max-width:360px">
     <div class="modal-hd">
@@ -678,7 +688,6 @@
           inputmode="numeric"
           autocomplete="one-time-code"
         >
-
         <p class="form-hint" style="margin-top:12px;">
           Cuando completes los 6 dígitos, el código se validará automáticamente.
         </p>
@@ -767,6 +776,6 @@
 <div id="toast-container"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="app.js?v=2"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

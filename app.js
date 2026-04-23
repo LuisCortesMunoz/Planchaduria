@@ -1,5 +1,7 @@
 // ================================
-// app.js
+// app.js — FRONTEND
+// CAMBIO: Agregado estado "listo_para_entrega"
+// Modificaciones marcadas con // ✅ NUEVO
 // ================================
 const BACKEND_URL = "https://docker-planchaduria.onrender.com";
 
@@ -88,7 +90,6 @@ function bindModalClosers() {
       closeImageViewer();
     }
 
-    // Cerrar modal QR al hacer clic fuera
     const qrOverlay = document.getElementById("qr-modal-overlay");
     if (qrOverlay && e.target === qrOverlay) {
       closeQRModal();
@@ -813,9 +814,7 @@ async function npFinalizar() {
 }
 
 /* =========================
-   CAMBIO 1: QR CON FONDO BLANCO FIJO
-   Se fuerza fondo blanco en el canvas y su contenedor
-   para que sea escaneable en modo oscuro.
+   QR CON FONDO BLANCO FIJO
 ========================= */
 function renderQREnCanvas(canvas, folio) {
   if (!canvas) return;
@@ -824,7 +823,6 @@ function renderQREnCanvas(canvas, folio) {
   canvas.width = 180;
   canvas.height = 180;
 
-  // Fondo blanco fijo (independiente del tema del dispositivo)
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -847,7 +845,6 @@ function renderQREnCanvas(canvas, folio) {
       const qrCanvas = tmpDiv.querySelector("canvas");
       const qrImg = tmpDiv.querySelector("img");
 
-      // Redibujar sobre fondo blanco
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -906,7 +903,6 @@ function mostrarModalConfirmacion(data) {
 
   const canvas = document.getElementById("conf-qr-canvas");
 
-  // Aplicar fondo blanco al contenedor del canvas también
   const qrWrap = canvas?.closest(".conf-qr-wrap");
   if (qrWrap) {
     qrWrap.style.background = "#ffffff";
@@ -920,7 +916,6 @@ function mostrarModalConfirmacion(data) {
     return;
   }
 
-  // Usar la función centralizada de renderizado de QR
   renderQREnCanvas(canvas, folio);
 
   document.getElementById("modal-confirmacion")?.classList.remove("hidden");
@@ -931,8 +926,7 @@ function cerrarModalConfirmacion() {
 }
 
 /* =========================
-   CAMBIO 2: MODAL QR REUTILIZABLE
-   Para ver el QR de cualquier pedido desde Mis Prendas
+   MODAL QR REUTILIZABLE
 ========================= */
 function createQRModal() {
   if (document.getElementById("qr-modal-overlay")) return;
@@ -984,7 +978,7 @@ function closeQRModal() {
 }
 
 /* =========================
-   ACTIVAR PEDIDO DESDE QR POR IMAGEN
+   ACTIVAR PEDIDO DESDE QR
 ========================= */
 async function leerQRYActivarPedido() {
   if (!G.token) {
@@ -1095,7 +1089,6 @@ function decodificarQRDesdeImagen(file) {
 /* =========================
    PANTALLAS CLIENTE
 ========================= */
-
 async function loadMisPrendas() {
   const list = document.getElementById("mis-prendas-list");
   if (!list) return;
@@ -1139,7 +1132,6 @@ async function loadMisPrendas() {
         `
         : `<p class="sin-fotos">Aún no hay fotos para este pedido.</p>`;
 
-      // CAMBIO 2: Botón para ver QR del pedido
       const qrBtnHtml = folioRaw
         ? `<button
              class="btn-qr-pedido"
@@ -1298,7 +1290,8 @@ function admNavById(viewId) {
 }
 
 function updateMetrics() {
-  const cnt = { pendiente: 0, en_proceso: 0, planchado: 0, listo: 0, entregado: 0 };
+  // ✅ NUEVO: se agrega listo_para_entrega al conteo de "En proceso"
+  const cnt = { pendiente: 0, en_proceso: 0, planchado: 0, listo_para_entrega: 0, listo: 0, entregado: 0 };
 
   G.orders.forEach(o => {
     if (cnt[o.Estado] !== undefined) cnt[o.Estado]++;
@@ -1306,7 +1299,8 @@ function updateMetrics() {
 
   setText("m-total", String(G.orders.length));
   setText("m-pend", String(cnt.pendiente));
-  setText("m-proc", String(cnt.en_proceso + cnt.planchado));
+  // ✅ NUEVO: listo_para_entrega se suma al contador de "En proceso" del dashboard
+  setText("m-proc", String(cnt.en_proceso + cnt.planchado + cnt.listo_para_entrega));
   setText("m-list", String(cnt.listo));
   setText("m-ent", String(cnt.entregado));
 }
@@ -1634,7 +1628,7 @@ function toggleSidebar() {
 }
 
 function closeSidebar() {
-    document.getElementById("adm-sidebar")?.classList.remove("open");
+  document.getElementById("adm-sidebar")?.classList.remove("open");
   document.getElementById("sidebar-overlay")?.classList.add("hidden");
 }
 
@@ -1741,14 +1735,16 @@ function closeImageViewer() {
 
 /* =========================
    HELPERS
+   ✅ NUEVO: "listo_para_entrega" agregado a badgeHtml y estadoLabel
 ========================= */
 function badgeHtml(Estado) {
   const map = {
-    pendiente: ["b-pendiente", "⏳ Pendiente"],
-    en_proceso: ["b-en_proceso", "🔄 En proceso"],
-    planchado: ["b-planchado", "👔 Planchado"],
-    listo: ["b-listo", "✅ Listo"],
-    entregado: ["b-entregado", "🏠 Entregado"]
+    pendiente:          ["b-pendiente",          "⏳ Pendiente"],
+    en_proceso:         ["b-en_proceso",          "🔄 En proceso"],
+    planchado:          ["b-planchado",           "👔 Planchado"],
+    listo_para_entrega: ["b-listo_para_entrega",  "📦 Listo para entrega"], // ✅ NUEVO
+    listo:              ["b-listo",               "✅ Listo"],
+    entregado:          ["b-entregado",           "🏠 Entregado"]
   };
   const [cls, label] = map[Estado] || ["b-pendiente", Estado || "—"];
   return `<span class="badge ${cls}">${label}</span>`;
@@ -1756,11 +1752,12 @@ function badgeHtml(Estado) {
 
 function estadoLabel(Estado) {
   const labels = {
-    pendiente: "Pendiente",
-    en_proceso: "En proceso",
-    planchado: "Planchado",
-    listo: "Listo",
-    entregado: "Entregado"
+    pendiente:          "Pendiente",
+    en_proceso:         "En proceso",
+    planchado:          "Planchado",
+    listo_para_entrega: "Listo para entrega", // ✅ NUEVO
+    listo:              "Listo",
+    entregado:          "Entregado"
   };
   return labels[Estado] || Estado || "—";
 }
